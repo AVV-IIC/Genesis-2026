@@ -51,23 +51,23 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 const page = (name) => path.join(config.PUBLIC_DIR, name);
 const noCache = (res) => res.setHeader('Cache-Control', 'no-cache');
 
-app.get('/', (req, res) => {
-  if (req.user) return res.redirect(req.user.role === 'admin' ? '/admin' : '/team');
+// Pages link to each other with relative *.html URLs (so the same files also
+// work on static hosting), so serve both forms.
+app.get(['/', '/index.html'], (req, res) => {
+  if (req.user && !req.query.expired && !req.query.signedout) return res.redirect(req.user.role === 'admin' ? '/admin' : '/team');
   noCache(res);
   res.sendFile(page('index.html'));
 });
-app.get('/team', (req, res) => {
+app.get(['/team', '/team.html'], (req, res) => {
   if (!req.user || req.user.role !== 'team') return res.redirect('/');
   noCache(res);
   res.sendFile(page('team.html'));
 });
-app.get('/admin', (req, res) => {
+app.get(['/admin', '/admin.html'], (req, res) => {
   if (!req.user || req.user.role !== 'admin') return res.redirect('/');
   noCache(res);
   res.sendFile(page('admin.html'));
 });
-
-app.get(['/index.html', '/team.html', '/admin.html'], (req, res) => res.redirect(req.path.replace(/(index)?\.html$/, '') || '/'));
 
 app.use('/fonts', express.static(path.join(config.PUBLIC_DIR, 'fonts'), { maxAge: '30d', immutable: true }));
 app.use(express.static(config.PUBLIC_DIR, { index: false, maxAge: 0 }));

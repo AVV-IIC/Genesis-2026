@@ -39,7 +39,7 @@ export async function render(ctx, params, seq) {
         )}
       </div>
       <span class="grow"></span>
-      <a class="btn btn-ghost btn-sm" href="/api/admin/teams/export.csv">${icon('download')}Export CSV</a>
+      <button type="button" class="btn btn-ghost btn-sm" data-download="teams">${icon('download')}Export CSV</button>
       <button type="button" class="btn btn-ghost btn-sm" id="t-slips">${icon('printer')}New passwords for all</button>
     </div>
 
@@ -218,7 +218,7 @@ function importTeams(ctx) {
     wide: true,
     content: html`
       <p class="muted">Upload a CSV exported from Excel or Google Sheets. Only <span class="code-tag">team_name</span> is required. Team IDs and passwords are generated when left blank. Separate members with semicolons.</p>
-      <p><a class="btn btn-sm" href="/api/admin/teams/template.csv">${icon('download')}Download template</a></p>
+      <p><button type="button" class="btn btn-sm" data-download="template">${icon('download')}Download template</button></p>
       <label class="drop" id="drop"><input type="file" id="csv-file" accept=".csv,text/csv" class="sr-only">
         <strong>Choose a CSV file</strong> or drop it here<br><span class="small faint" id="csv-name">Columns: team_name, leader_name, email, phone, members, track, table, team_id, password</span></label>
       <label class="field"><span>Or paste CSV</span><textarea class="textarea mono" name="csv" id="csv-text" rows="6" style="font-size:12px" placeholder="team_name,leader_name,members&#10;Null Pointers,Asha Rao,Asha Rao; Vikram S"></textarea></label>`,

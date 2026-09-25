@@ -1,5 +1,8 @@
 // Shared helpers for every page: safe HTML templating, API calls, time
 // formatting, toasts, dialogs, icons and the live event stream.
+import * as backend from './backend.js';
+
+export const { STATIC, HOME, guardPage, download } = backend;
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -69,6 +72,17 @@ export async function preserveInputs(root, fn) {
 
 // ---------- API -------------------------------------------------------------------
 export async function api(path, { method = 'GET', body } = {}) {
+  if (STATIC) {
+    try {
+      return await backend.request(method, path, body);
+    } catch (err) {
+      if (err.status === 401 && !path.startsWith('/auth/')) {
+        backend.session.clear();
+        location.href = `${HOME}?expired=1`;
+      }
+      throw new ApiError(err.message, err.status, err.data);
+    }
+  }
   const opts = { method, headers: { 'X-Genesis': '1' }, credentials: 'same-origin' };
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
@@ -83,7 +97,7 @@ export async function api(path, { method = 'GET', body } = {}) {
   const isJson = (res.headers.get('content-type') || '').includes('json');
   const data = isJson ? await res.json().catch(() => null) : null;
   if (res.status === 401 && !path.startsWith('/auth/')) {
-    location.href = '/?expired=1';
+    location.href = `${HOME}?expired=1`;
     throw new ApiError('Your session has ended.', 401);
   }
   if (!res.ok) throw new ApiError((data && data.error) || `Request failed (${res.status}).`, res.status, data);
@@ -99,7 +113,8 @@ export class ApiError extends Error {
 
 export async function signOut() {
   try { await api('/auth/logout', { method: 'POST', body: {} }); } catch { /* ignore */ }
-  location.href = '/';
+  backend.session.clear();
+  location.href = HOME;
 }
 
 // ---------- time --------------------------------------------------------------------
@@ -198,7 +213,7 @@ export const icon = (name) =>
   raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`);
 
 // The Genesis logo (light bulb), used in every header.
-export const MARK = raw('<img src="/img/logo-sm.png" alt="" width="120" height="194">');
+export const MARK = raw('<img src="img/logo-sm.png" alt="" width="120" height="194">');
 
 // ---------- toasts ------------------------------------------------------------------------
 function toastHost() {
@@ -336,6 +351,7 @@ export function downloadText(filename, text, type = 'text/csv') {
 // ---------- live updates ---------------------------------------------------------------
 /** handlers: { [eventType]: fn(data) , reconnect?: fn() } */
 export function connectLive(handlers, indicator) {
+  if (STATIC) return backend.live(handlers, [].concat(indicator || []).filter(Boolean));
   let es;
   let wasDown = false;
   const indicators = [].concat(indicator || []).filter(Boolean);
@@ -358,7 +374,7 @@ export function connectLive(handlers, indicator) {
       if (es.readyState === EventSource.CLOSED) {
         // Closed for good (e.g. session ended). Check before retrying.
         fetch('/api/auth/me', { credentials: 'same-origin' })
-          .then((r) => (r.status === 401 ? (location.href = '/?expired=1') : setTimeout(open, 3000)))
+          .then((r) => (r.status === 401 ? (location.href = `${HOME}?expired=1`) : setTimeout(open, 3000)))
           .catch(() => setTimeout(open, 5000));
       }
     };

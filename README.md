@@ -120,6 +120,28 @@ To get a public HTTPS link without a server, run a [Cloudflare Tunnel](https://d
 
 ---
 
+### Option E: Free, on GitHub Pages + Supabase (no server at all)
+
+The same website also runs as a static site on **github.io**, with the data in a free **Supabase** database. The server logic lives in `supabase/schema.sql` as database functions.
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In the project, open **SQL Editor → New query**, paste the whole of `supabase/schema.sql`, and click **Run**. Running it again later is safe; that's how you apply updates.
+3. In the same editor, create the two organiser logins (use your own strong passwords):
+   ```sql
+   select genesis.create_admin('admin1', 'Organiser 1', 'a-strong-password-1');
+   select genesis.create_admin('admin2', 'Organiser 2', 'a-strong-password-2');
+   ```
+   The same command resets an organiser's password if one is ever forgotten.
+4. Build the website with your **Project URL** and **publishable (anon) key** from *Project Settings → API Keys*. Never use the secret/service_role key; the script refuses it.
+   ```bash
+   node scripts/build-site.js --url https://YOUR-PROJECT.supabase.co --key YOUR-PUBLISHABLE-KEY --out ../genesis-hackathon-site
+   ```
+5. Push that folder to a **public** GitHub repository and turn on **Settings → Pages → Deploy from a branch → main / (root)**. The site appears at `https://<your-username>.github.io/<repo-name>/`.
+
+How it stays secure: the tables live in a private `genesis` schema that the public key can't read. The website can only call the `api_*` functions, and every one of them checks the signed-in user's session and role. Passwords are stored as bcrypt hashes. Live updates use Supabase Realtime broadcasts that contain only "something changed" signals, never scores or notes. If live updates can't connect, pages refresh themselves every 45 seconds and show "Auto-refresh".
+
+Limits of the free plan: Supabase pauses a free project after about a week with no activity (open the dashboard and click *Restore*). The free database and bandwidth are far more than a hackathon needs.
+
 ## 4. Event-day checklist
 
 - [ ] Real event start/end time set in **Settings**; demo data deleted.

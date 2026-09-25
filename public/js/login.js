@@ -1,4 +1,4 @@
-import { $, $$, api, clock, html, setHTML, icon } from './core.js';
+import { $, $$, api, clock, html, setHTML, icon, STATIC } from './core.js';
 import { setEventTimes, mountHorizon, eventRangeText } from './dial.js';
 
 const form = $('#login-form');
@@ -42,6 +42,12 @@ toggle.addEventListener('click', () => {
 drawToggle();
 
 const params = new URLSearchParams(location.search);
+// Static hosting has no server-side redirect: skip sign-in if already signed in.
+if (STATIC && !params.has('expired') && !params.has('signedout')) {
+  api('/auth/me')
+    .then(({ user }) => location.replace(user.role === 'admin' ? 'admin.html' : 'team.html'))
+    .catch(() => { /* not signed in */ });
+}
 if (params.has('expired')) errorBox.textContent = 'Your session ended. Sign in again.';
 if (params.has('signedout')) errorBox.textContent = 'You were signed out because your team’s login changed. Sign in with your new password.';
 

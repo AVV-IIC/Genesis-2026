@@ -1,6 +1,6 @@
 import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, connectLive, startRouter, preserveInputs,
-  debounce, signOut,
+  debounce, signOut, guardPage, download, withBusy,
 } from '../core.js';
 import { setEventTimes } from '../dial.js';
 import { empty } from './shared.js';
@@ -39,7 +39,14 @@ const ctx = {
   isCurrent: (seq) => seq === ctx.seq,
 };
 
+guardPage('admin');
 $$('[data-mark]').forEach((el) => setHTML(el, MARK));
+
+// Export / backup buttons anywhere in the console.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-download]');
+  if (b) withBusy(b, () => download(b.dataset.download)).catch(toastError);
+});
 $$('[data-signout]').forEach((b) => b.addEventListener('click', signOut));
 
 async function refreshMeta() {
@@ -108,9 +115,10 @@ const metaSoon = debounce(() => refreshMeta().catch(() => {}), 300);
   const handlers = {};
   for (const type of ['teams', 'rounds', 'sheet', 'results', 'announcement', 'announcements', 'schedule', 'settings', 'ticket']) {
     handlers[type] = (data) => {
-      if (type === 'ticket' && (data.kind === 'new' || (data.kind === 'reply' && data.team))) {
-        toast(data.subject, 'ember', {
-          title: data.kind === 'new' ? `New help request · ${data.team}` : `${data.team} replied`,
+      if (type === 'ticket' && (data.kind === 'new' || data.kind === 'reply')) {
+        const who = data.team ? ` · ${data.team}` : '';
+        toast(data.subject || 'Open the help desk to read it.', 'ember', {
+          title: data.kind === 'new' ? `New help request${who}` : `A team replied${who}`,
           action: { label: 'Open', onClick: () => (location.hash = `#/help/${data.id}`) },
         });
       }

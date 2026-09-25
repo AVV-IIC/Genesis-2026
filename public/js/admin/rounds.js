@@ -54,12 +54,18 @@ export function leave() {
 export function onEvent(type, data, ctx) {
   if (type === 'sheet') {
     if (!S.round || data.round_id !== S.round.id) return true;
-    const i = S.rows.findIndex((r) => r.team_id === data.team_id);
-    if (i >= 0 && data.row) S.rows[i] = data.row;
-    if (!S.timers.has(data.team_id) && !S.saving.has(data.team_id) && data.row) {
-      patchRow(data.row, data.by !== ctx.me.name);
-    }
-    drawProgress();
+    // Our own saves already updated the row.
+    if (data.by === ctx.me.name && !data.row) return true;
+    const apply = (row) => {
+      if (!row || !S.round || data.round_id !== S.round.id) return;
+      const i = S.rows.findIndex((r) => r.team_id === data.team_id);
+      if (i >= 0) S.rows[i] = row;
+      if (!S.timers.has(data.team_id) && !S.saving.has(data.team_id)) patchRow(row, data.by !== ctx.me.name);
+      drawProgress();
+    };
+    // Live signals from the database carry no scores; fetch the row.
+    if (data.row) apply(data.row);
+    else api(`/admin/rounds/${data.round_id}/sheet/${data.team_id}`).then((r) => apply(r.row)).catch(() => {});
     return true;
   }
   if (['rounds', 'results', 'teams'].includes(type)) {

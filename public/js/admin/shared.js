@@ -20,7 +20,7 @@ export function printSlips(creds, eventName) {
     area,
     creds.map(
       (c) => html`<div class="slip">
-        <img src="/img/logo-sm.png" alt="">
+        <img src="img/logo-sm.png" alt="">
         <div><h3>${eventName}</h3>
         <div class="team">${c.name}${c.table_no ? ` · Table ${c.table_no}` : ''}</div>
         <dl><dt>Portal</dt><dd>${portalUrl()}</dd><dt>Team ID</dt><dd>${c.code}</dd><dt>Password</dt><dd>${c.password}</dd></dl></div>

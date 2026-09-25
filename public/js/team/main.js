@@ -1,13 +1,14 @@
 import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, formValues, withBusy,
   connectLive, startRouter, preserveInputs, debounce, signOut, richText, timeAgo, fmtTime, fmtDay, fmtDayLong,
-  dayKey, fmtScore, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL,
+  dayKey, fmtScore, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, guardPage, HOME,
 } from '../core.js';
 import { setEventTimes, mountDial, eventRangeText } from '../dial.js';
 
 const main = $('#main');
 const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null };
 
+guardPage('team');
 setHTML($('#mark'), MARK);
 $('#signout').addEventListener('click', signOut);
 
@@ -513,11 +514,24 @@ function onRoute(view, params) {
 
   connectLive(
     {
-      announcement(a) {
+      async announcement(a) {
         const kind = a.priority === 'urgent' ? 'error' : a.priority === 'important' ? 'warn' : 'ember';
-        toast(a.title, kind, { title: 'New announcement', action: { label: 'Read', onClick: () => (location.hash = '#/announcements') } });
-        if (a.priority === 'urgent' && app.view !== 'announcements') renderUrgent(a);
-        refresh();
+        const show = (title) => toast(title, kind, { title: 'New announcement', action: { label: 'Read', onClick: () => (location.hash = '#/announcements') } });
+        if (a.title) {
+          show(a.title);
+          if (a.priority === 'urgent' && app.view !== 'announcements') renderUrgent(a);
+          return refresh();
+        }
+        // Live signals from the database carry no text; fetch the announcement.
+        try {
+          await loadCore();
+          await preserveInputs(main, render);
+          const list = app.data.announcements || [];
+          const latest = list.find((x) => x.id === a.id) || list[0];
+          show(latest ? latest.title : 'Open Announcements to read it.');
+        } catch (err) {
+          toastError(err);
+        }
       },
       announcements: refresh,
       results(e) {
@@ -532,12 +546,14 @@ function onRoute(view, params) {
       settings: refresh,
       profile: refresh,
       ticket(e) {
-        if (e.kind === 'reply') toast(`An organiser replied to “${e.subject}”.`, 'ember', { title: 'Help desk', action: { label: 'Open', onClick: () => (location.hash = `#/help/${e.id}`) } });
-        if (e.kind === 'status') toast(`“${e.subject}” is now ${TICKET_LABEL[e.status].toLowerCase()}.`, 'info', { title: 'Help desk' });
+        const what = e.subject ? `“${e.subject}”` : 'your help request';
+        if (e.kind === 'reply') toast(`An organiser replied to ${what}.`, 'ember', { title: 'Help desk', action: { label: 'Open', onClick: () => (location.hash = `#/help/${e.id}`) } });
+        if (e.kind === 'status' && TICKET_LABEL[e.status]) toast(`${e.subject ? what : 'Your help request'} is now ${TICKET_LABEL[e.status].toLowerCase()}.`, 'info', { title: 'Help desk' });
         refresh();
       },
       'signed-out'() {
-        location.href = '/?signedout=1';
+        try { localStorage.removeItem('genesis-session'); } catch { /* ignore */ }
+        location.href = `${HOME}?signedout=1`;
       },
       reconnect: refresh,
     },

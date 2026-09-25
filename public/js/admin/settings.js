@@ -55,11 +55,11 @@ export async function render(ctx, params, seq) {
         <section class="card">
           <h2 class="section-title" style="margin-bottom:12px">Data</h2>
           <div class="row">
-            <a class="btn btn-sm" href="/api/admin/export/results.csv">${icon('download')}Results CSV</a>
-            <a class="btn btn-sm" href="/api/admin/teams/export.csv">${icon('download')}Teams CSV</a>
-            <a class="btn btn-sm" href="/api/admin/backup">${icon('download')}Database backup</a>
+            <button type="button" class="btn btn-sm" data-download="results">${icon('download')}Results CSV</button>
+            <button type="button" class="btn btn-sm" data-download="teams">${icon('download')}Teams CSV</button>
+            <button type="button" class="btn btn-sm" data-download="backup">${icon('download')}Full backup</button>
           </div>
-          <p class="small faint" style="margin-top:10px">Download a backup before and after each round. To restore, stop the server and replace <span class="mono">data/genesis.db</span> with the backup file.</p>
+          <p class="small faint" style="margin-top:10px">Download a backup before and after each round. It holds every team, score, decision, note, announcement and help request (never passwords).</p>
           <hr class="divider">
           <h3 style="font-size:15px;margin-bottom:4px;color:var(--bad)">Danger zone</h3>
           <p class="small muted" style="margin-bottom:12px">Use this to clear test data before the event starts.</p>

@@ -84,6 +84,12 @@ router.get('/rounds/:id/sheet', (req, res) => {
   res.json(sheet);
 });
 
+router.get('/rounds/:id/sheet/:teamId', (req, res) => {
+  const sheet = results.roundSheet(idParam(req.params.id));
+  if (!sheet) fail(404, 'That round doesn’t exist.');
+  res.json({ row: sheet.rows.find((r) => r.team_id === idParam(req.params.teamId)) || null });
+});
+
 router.put('/rounds/:id/sheet/:teamId', (req, res) => {
   const round = getRound(idParam(req.params.id));
   const teamId = idParam(req.params.teamId);

@@ -3,14 +3,14 @@
    separated by white gaps (deep teal → ocean → teal → cyan → mint). The 24-hour
    dial is drawn the same way, so the bulb "lights up" as the event runs. */
 
-@font-face { font-family: 'Big Shoulders Display'; src: url('/fonts/big-shoulders-display-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
-@font-face { font-family: 'Big Shoulders Display'; src: url('/fonts/big-shoulders-display-latin-800-normal.woff2') format('woff2'); font-weight: 800; font-display: swap; }
-@font-face { font-family: 'Figtree'; src: url('/fonts/figtree-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Figtree'; src: url('/fonts/figtree-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
-@font-face { font-family: 'Figtree'; src: url('/fonts/figtree-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
-@font-face { font-family: 'Figtree'; src: url('/fonts/figtree-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
-@font-face { font-family: 'Martian Mono'; src: url('/fonts/martian-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Martian Mono'; src: url('/fonts/martian-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Big Shoulders Display'; src: url('../fonts/big-shoulders-display-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Big Shoulders Display'; src: url('../fonts/big-shoulders-display-latin-800-normal.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Martian Mono'; src: url('../fonts/martian-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Martian Mono'; src: url('../fonts/martian-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
 
 :root {
   /* surfaces */

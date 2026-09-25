@@ -13,7 +13,7 @@ export async function render(ctx, params, seq) {
     html`
     <div class="page-head">
       <div><h1 class="page-title">Leaderboard</h1><p>Your view includes unpublished rounds. Teams only ever see totals from published rounds.</p></div>
-      <a class="btn" href="/api/admin/export/results.csv">${icon('download')}Export results CSV</a>
+      <button type="button" class="btn" data-download="results">${icon('download')}Export results CSV</button>
     </div>
     <div class="card" style="margin-bottom:16px">
       <div class="switch-row" style="padding:0">
