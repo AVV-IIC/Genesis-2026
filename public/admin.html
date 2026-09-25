@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <title>Organiser console · Genesis Hackathon</title>
+  <link rel="icon" href="/img/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <link rel="preload" href="/fonts/big-shoulders-display-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/css/app.css">
+  <script type="module" src="/js/admin/main.js"></script>
+</head>
+<body>
+  <div class="console">
+    <aside class="sidebar">
+      <a class="brand" href="#/dashboard"><span data-mark></span><span data-brand>Genesis</span></a>
+      <p class="sidebar-label">Organiser console</p>
+      <nav class="nav" data-nav aria-label="Console sections"></nav>
+      <div class="sidebar-foot">
+        <div><strong data-me-name></strong><small data-me-user></small></div>
+        <div class="row-between">
+          <span class="live" data-live>Connecting…</span>
+          <button type="button" class="btn btn-ghost btn-sm" data-signout>Sign out</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="console-main">
+      <div class="mobile-bar">
+        <div class="row-between">
+          <a class="brand" href="#/dashboard"><span data-mark></span><span data-brand>Genesis</span></a>
+          <div class="row"><span class="live" data-live>Connecting…</span><button type="button" class="btn btn-ghost btn-sm" data-signout>Sign out</button></div>
+        </div>
+        <nav class="nav" data-nav aria-label="Console sections"></nav>
+      </div>
+      <main class="wrap" id="main"><div class="loading" aria-label="Loading"></div></main>
+    </div>
+  </div>
+  <div id="print-area"></div>
+</body>
+</html>

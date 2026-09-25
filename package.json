@@ -1,0 +1,19 @@
+{
+  "name": "genesis-hackathon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Genesis Hackathon portal: team leader dashboards, round-wise scoring and results, announcements, schedule and help desk.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "reset-admin": "node --disable-warning=ExperimentalWarning scripts/reset-admin.js",
+    "seed-demo": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
