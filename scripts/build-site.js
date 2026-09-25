@@ -11,9 +11,16 @@ const path = require('node:path');
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith('--') ? [...acc, [a.slice(2), all[i + 1]]] : acc), [])
 );
-const url = (args.url || process.env.SUPABASE_URL || '').replace(/\/+$/, '');
-const key = args.key || process.env.SUPABASE_KEY || '';
-const out = path.resolve(args.out || path.join(__dirname, '..', 'site-build'));
+// Defaults come from site.config.json (publishable key only — safe to commit).
+let saved = {};
+try {
+  saved = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'site.config.json'), 'utf8'));
+} catch {
+  /* no saved config */
+}
+const url = (args.url || process.env.SUPABASE_URL || saved.supabaseUrl || '').replace(/\/+$/, '');
+const key = args.key || process.env.SUPABASE_KEY || saved.supabaseKey || '';
+const out = path.resolve(path.join(__dirname, '..'), args.out || saved.out || 'site-build');
 const src = path.join(__dirname, '..', 'public');
 
 if (!/^https?:\/\/[^\s'"]+$/.test(url) || !key || /['"\s]/.test(key)) {
@@ -34,7 +41,17 @@ if (existing.length && !existing.includes(MARKER)) {
 }
 for (const f of existing) fs.rmSync(path.join(out, f), { recursive: true, force: true });
 
-fs.cpSync(src, out, { recursive: true });
+// Plain recursive copy (fs.cpSync crashes on some Windows paths in Node 24).
+function copyDir(from, to) {
+  fs.mkdirSync(to, { recursive: true });
+  for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
+    const a = path.join(from, entry.name);
+    const b = path.join(to, entry.name);
+    if (entry.isDirectory()) copyDir(a, b);
+    else if (entry.isFile()) fs.copyFileSync(a, b);
+  }
+}
+copyDir(src, out);
 
 fs.writeFileSync(
   path.join(out, 'js', 'config.js'),

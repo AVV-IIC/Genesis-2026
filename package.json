@@ -8,7 +8,8 @@
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
     "reset-admin": "node --disable-warning=ExperimentalWarning scripts/reset-admin.js",
-    "seed-demo": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js"
+    "seed-demo": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js",
+    "build-site": "node scripts/build-site.js"
   },
   "engines": {
     "node": ">=22.13.0"

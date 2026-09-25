@@ -2,7 +2,7 @@
 // formatting, toasts, dialogs, icons and the live event stream.
 import * as backend from './backend.js';
 
-export const { STATIC, HOME, guardPage, download } = backend;
+export const { STATIC, HOME, guardPage, download, hasSession } = backend;
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];

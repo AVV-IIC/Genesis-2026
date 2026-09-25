@@ -20,6 +20,7 @@ export const session = {
   },
 };
 const token = () => (session.get() || {}).token || '';
+export const hasSession = () => Boolean(token());
 
 /** Static mode only: send people to the sign-in page if this page isn't theirs. */
 export function guardPage(role) {
@@ -336,6 +337,8 @@ export async function live(handlers, indicators) {
     startPolling();
   }
   setTimeout(() => { if (!connected) { setState(false); startPolling(); } }, 8000);
+  // Safety net: even while live, refresh occasionally in case a signal was missed.
+  setInterval(() => { if (connected && document.visibilityState === 'visible') handlers.reconnect?.(); }, 180000);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') handlers.reconnect?.();
   });
