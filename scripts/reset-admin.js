@@ -2,19 +2,24 @@
 // Reset (or create) an organiser account from the command line.
 //   npm run reset-admin -- admin1                 -> generates a new password
 //   npm run reset-admin -- admin1 "MyNewPass123"  -> sets this password
+//   npm run reset-admin -- ideaadmin3 --ideathon  -> creates an Ideathon organiser
 //   npm run reset-admin -- list                   -> lists organiser accounts
 const crypto = require('node:crypto');
 const { q } = require('../server/db');
 const { hashPassword } = require('../server/auth');
 
 (async () => {
-  const [username, password] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const competition = args.includes('--ideathon') ? 'ideathon' : 'hackathon';
+  const [username, password] = args.filter((a) => !a.startsWith('--'));
   if (!username) {
-    console.log('Usage: npm run reset-admin -- <username> [new-password]\n       npm run reset-admin -- list');
+    console.log('Usage: npm run reset-admin -- <username> [new-password] [--ideathon]\n       npm run reset-admin -- list');
     process.exit(1);
   }
   if (username === 'list') {
-    for (const a of q.all('SELECT username, display_name FROM admins ORDER BY id')) console.log(`  ${a.username.padEnd(14)} ${a.display_name}`);
+    for (const a of q.all('SELECT username, display_name, competition FROM admins ORDER BY competition, id')) {
+      console.log(`  ${a.username.padEnd(14)} ${a.competition.padEnd(10)} ${a.display_name}`);
+    }
     process.exit(0);
   }
   if (password && password.length < 8) {
@@ -29,8 +34,8 @@ const { hashPassword } = require('../server/auth');
     q.run("DELETE FROM sessions WHERE role = 'admin' AND user_id = ?", existing.id);
     console.log(`\n  Password reset for ${username}`);
   } else {
-    q.run('INSERT INTO admins (username, display_name, password_hash) VALUES (?, ?, ?)', username, username, hash);
-    console.log(`\n  Created organiser account ${username}`);
+    q.run('INSERT INTO admins (username, display_name, password_hash, competition) VALUES (?, ?, ?, ?)', username, username, hash, competition);
+    console.log(`\n  Created ${competition === 'ideathon' ? 'Ideathon' : 'Hackathon'} organiser account ${username}`);
   }
   console.log(`  Password: ${pw}\n`);
   process.exit(0);

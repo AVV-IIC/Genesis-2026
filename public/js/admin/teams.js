@@ -1,7 +1,24 @@
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, timeAgo } from '../core.js';
-import { chip, empty, showCredentials } from './shared.js';
+import { chip, empty, showCredentials, scope } from './shared.js';
 
-export const live = ['teams', 'rounds', 'results'];
+export const live = ['teams', 'rounds', 'results', 'submission'];
+
+// Filters per competition: [key, label, test]
+const FILTERS = {
+  hackathon: [
+    ['all', 'All', () => true],
+    ['competing', 'Competing', (t) => t.active && !t.eliminated_in],
+    ['eliminated', 'Eliminated', (t) => t.active && t.eliminated_in],
+    ['disabled', 'Disabled', (t) => !t.active],
+  ],
+  ideathon: [
+    ['all', 'All', () => true],
+    ['submitted', 'Idea in', (t) => t.active && t.has_submission],
+    ['missing', 'No idea yet', (t) => t.active && !t.has_submission],
+    ['disabled', 'Disabled', (t) => !t.active],
+  ],
+};
+const filters = () => FILTERS[scope.comp].filter(([k]) => scope.comp !== 'ideathon' || scope.submissions || !['submitted', 'missing'].includes(k));
 
 const state = { teams: [], nextCode: '', filter: 'all', q: '' };
 let lastCtx = null;
@@ -13,12 +30,8 @@ export async function render(ctx, params, seq) {
   state.teams = data.teams;
   state.nextCode = data.next_code;
 
-  const counts = {
-    all: state.teams.length,
-    competing: state.teams.filter((t) => t.active && !t.eliminated_in).length,
-    eliminated: state.teams.filter((t) => t.active && t.eliminated_in).length,
-    disabled: state.teams.filter((t) => !t.active).length,
-  };
+  if (!filters().some(([k]) => k === state.filter)) state.filter = 'all';
+  const counts = Object.fromEntries(filters().map(([k, , test]) => [k, state.teams.filter(test).length]));
 
   setHTML(
     ctx.main,
@@ -34,7 +47,7 @@ export async function render(ctx, params, seq) {
     <div class="toolbar">
       <label class="search"><span class="sr-only">Search teams</span>${icon('search')}<input class="input" id="t-search" type="search" placeholder="Search name, ID, leader, track" value="${state.q}"></label>
       <div class="seg" role="group" aria-label="Filter teams">
-        ${[['all', 'All'], ['competing', 'Competing'], ['eliminated', 'Eliminated'], ['disabled', 'Disabled']].map(
+        ${filters().map(
           ([k, label]) => html`<button type="button" data-filter="${k}" aria-pressed="${state.filter === k}">${label} <span class="faint">${counts[k]}</span></button>`
         )}
       </div>
@@ -75,10 +88,9 @@ export async function render(ctx, params, seq) {
 
 function visibleTeams() {
   const q = state.q.trim().toLowerCase();
+  const test = (filters().find(([k]) => k === state.filter) || filters()[0])[2];
   return state.teams.filter((t) => {
-    if (state.filter === 'competing' && !(t.active && !t.eliminated_in)) return false;
-    if (state.filter === 'eliminated' && !(t.active && t.eliminated_in)) return false;
-    if (state.filter === 'disabled' && t.active) return false;
+    if (!test(t)) return false;
     if (!q) return true;
     return [t.code, t.name, t.leader_name, t.track, t.table_no, ...t.members].some((v) => String(v || '').toLowerCase().includes(q));
   });
@@ -101,7 +113,7 @@ function drawRows() {
         <td>${t.track || html`<span class="faint">–</span>`}</td>
         <td>${t.table_no || html`<span class="faint">–</span>`}</td>
         <td class="num">${t.members.length}</td>
-        <td>${!t.active ? chip('disabled', 'Disabled') : t.eliminated_in ? chip('eliminated', `Out in R${t.eliminated_in}`) : chip('selected', 'Competing')}
+        <td>${statusChips(t)}
           ${t.open_tickets ? html` <a href="#/help" class="chip chip-open chip-plain" title="Open help requests">${t.open_tickets} help</a>` : ''}</td>
         <td class="small ${t.last_login_at ? 'muted' : 'faint'}">${t.last_login_at ? timeAgo(t.last_login_at) : 'Never'}</td>
         <td class="actions">
@@ -116,6 +128,14 @@ function drawRows() {
   $$('[data-edit]', body).forEach((b) => b.addEventListener('click', () => editTeam(null, byId(b.dataset.edit))));
   $$('[data-reset]', body).forEach((b) => b.addEventListener('click', () => resetPassword(byId(b.dataset.reset))));
   $$('[data-del]', body).forEach((b) => b.addEventListener('click', () => deleteTeam(byId(b.dataset.del))));
+}
+
+function statusChips(t) {
+  if (!t.active) return chip('disabled', 'Disabled');
+  if (scope.comp === 'ideathon') {
+    return html`${t.award ? chip('award', t.award) : chip('selected', 'Taking part')}${scope.submissions ? html` ${t.has_submission ? chip('advanced', 'Idea in') : chip('upcoming', 'No idea yet')}` : ''}`;
+  }
+  return t.eliminated_in ? chip('eliminated', `Out in R${t.eliminated_in}`) : chip('selected', 'Competing');
 }
 
 function eventName() {
@@ -177,7 +197,7 @@ async function resetPassword(team) {
 async function deleteTeam(team) {
   const ok = await confirmDialog({
     title: 'Delete team',
-    message: `Delete ${team.name} (${team.code})? Their scores, results and help requests are removed too. This can’t be undone. To stop them signing in but keep their data, edit the team and turn off “Team can sign in”.`,
+    message: `Delete ${team.name} (${team.code})? Their ${scope.comp === 'ideathon' ? 'idea, result' : 'scores, results'} and help requests are removed too. This can’t be undone. To stop them signing in but keep their data, edit the team and turn off “Team can sign in”.`,
     confirmLabel: 'Delete team',
     danger: true,
   });

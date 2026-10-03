@@ -1,14 +1,17 @@
-import { $, api, html, setHTML, icon, timeAgo, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL } from '../core.js';
+import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL } from '../core.js';
 import { mountDial, eventRangeText } from '../dial.js';
 import { chip, empty } from './shared.js';
 import { openComposer } from './announcements.js';
 
-export const live = ['teams', 'rounds', 'results', 'announcement', 'announcements', 'ticket', 'settings', 'schedule'];
+export const live = ['teams', 'rounds', 'results', 'announcement', 'announcements', 'ticket', 'settings', 'schedule', 'judges', 'submission'];
+
+const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
 export async function render(ctx, params, seq) {
   const d = await api('/admin/dashboard');
   if (!ctx.isCurrent(seq)) return;
   const s = d.stats;
+  const ideathon = d.competition === 'ideathon';
   const noTime = !d.settings.event_start || !d.settings.event_end;
 
   setHTML(
@@ -18,7 +21,11 @@ export async function render(ctx, params, seq) {
       <div><h1 class="page-title">Dashboard</h1><p>${d.settings.event_name}${eventRangeText() ? ` · ${eventRangeText()}` : ''}</p></div>
       <div class="row">
         <button type="button" class="btn" id="d-announce">${icon('megaphone')}New announcement</button>
-        <a class="btn btn-primary" href="#/rounds">${icon('trophy')}Enter scores</a>
+        ${ideathon
+          ? d.ideathon.state.enabled
+            ? html`<a class="btn btn-primary" href="#/submissions">${icon('bulb')}View ideas</a>`
+            : html`<a class="btn btn-primary" href="#/results">${icon('award')}Results</a>`
+          : html`<a class="btn btn-primary" href="#/rounds">${icon('trophy')}Enter scores</a>`}
       </div>
     </div>
 
@@ -26,25 +33,20 @@ export async function render(ctx, params, seq) {
 
     <div class="hero-grid">
       <section class="card hero-dial"><div data-dial></div><p class="event-line">${d.settings.venue || 'Venue not set'}</p></section>
-      <section class="card">
-        <div class="card-head"><h2 class="section-title">Rounds</h2><a class="btn btn-ghost btn-sm" href="#/rounds">Manage</a></div>
-        <ul class="list-plain">${d.rounds.map(
-          (r) => html`<li>
-            <a href="#/rounds/${r.number}" style="color:inherit;text-decoration:none"><span class="round-no">Round ${r.number}</span><br><strong>${r.name}</strong>${r.is_elimination ? '' : html` <span class="small faint">· no eliminations</span>`}</a>
-            <span class="row">${chip(r.state, STATE_LABEL[r.state])}${r.published ? chip('selected', 'Published') : chip('upcoming', 'Hidden')}</span>
-          </li>`
-        )}</ul>
-      </section>
+      ${ideathon ? ideathonCard(d) : roundsCard(d)}
     </div>
 
     <div class="stats" style="margin-top:20px">
       ${stat(s.teams, 'Teams registered')}
-      ${stat(s.competing, 'Still competing')}
-      ${stat(s.eliminated, 'Eliminated')}
+      ${ideathon
+        ? d.ideathon.state.enabled ? stat(`${d.ideathon.submissions}/${s.active}`, 'Ideas submitted') : ''
+        : html`${stat(s.competing, 'Still competing')}${stat(s.eliminated, 'Eliminated')}`}
       ${stat(`${s.logged_in}/${s.active}`, 'Have signed in')}
       ${stat(s.tickets_open, 'Open help requests', s.tickets_unread > 0)}
       ${stat(s.online, 'Tabs open right now')}
     </div>
+
+    ${ideathon ? '' : judgingCard(d)}
 
     <div class="two-col">
       <section class="card card-flush">
@@ -74,6 +76,56 @@ export async function render(ctx, params, seq) {
   );
   mountDial($('[data-dial]', ctx.main));
   $('#d-announce').addEventListener('click', () => openComposer(ctx));
+}
+
+function roundsCard(d) {
+  return html`<section class="card">
+    <div class="card-head"><h2 class="section-title">Rounds</h2><a class="btn btn-ghost btn-sm" href="#/rounds">Manage</a></div>
+    <ul class="list-plain">${d.rounds.map(
+      (r) => html`<li>
+        <a href="#/rounds/${r.number}" style="color:inherit;text-decoration:none"><span class="round-no">Round ${r.number}</span><br><strong>${r.name}</strong>${r.is_elimination ? '' : html` <span class="small faint">· no eliminations</span>`}</a>
+        <span class="row">${chip(r.state, STATE_LABEL[r.state])}${r.published ? chip('selected', 'Published') : chip('upcoming', 'Hidden')}</span>
+      </li>`
+    )}</ul>
+  </section>`;
+}
+
+function judgingCard(d) {
+  const j = d.judging;
+  if (!j) return '';
+  return html`<section class="card" style="margin-top:20px">
+    <div class="card-head"><h2 class="section-title">Judging</h2><a class="btn btn-ghost btn-sm" href="#/judges">${j.judges ? 'Manage judges' : 'Add judges'}</a></div>
+    ${j.judges
+      ? html`<div class="judging-grid">${j.rounds.map(
+          (r) => html`<a class="judging-round${r.open ? ' is-open' : ''}" href="#/judges/${r.number}">
+            <span class="round-no">Round ${r.number}</span><strong>${r.name}</strong>
+            ${r.assigned
+              ? html`<span class="progress" aria-hidden="true"><i style="width:${pct(r.done, r.assigned)}%"></i></span>
+                 <span class="small muted">${r.done}/${r.assigned} marked done${r.open ? ' · judging open' : ''}</span>`
+              : html`<span class="small faint">No judges assigned</span>`}
+          </a>`
+        )}</div>
+        <p class="small faint" style="margin-top:10px">${j.judges} active judge${j.judges === 1 ? '' : 's'}. Judges can enter marks while a round is “Live” or “Judging” and not yet published.</p>`
+      : html`<p class="muted small">No judges yet. You can score teams yourself on the Rounds page, or add judges so each one scores their assigned teams.</p>`}
+  </section>`;
+}
+
+function ideathonCard(d) {
+  const st = d.ideathon.state;
+  const subLine = !st.enabled
+    ? 'Turned off. Teams just work through the 24 hours.'
+    : st.open
+      ? `Open${st.deadline ? ` until ${fmtDateTime(st.deadline)}` : ''}`
+      : st.accepting && st.deadline ? `Closed (deadline ${fmtDateTime(st.deadline)})` : 'Closed';
+  return html`<section class="card stack">
+    <div class="card-head" style="margin:0"><h2 class="section-title">Ideathon</h2><a class="btn btn-ghost btn-sm" href="#/settings">Settings</a></div>
+    <ul class="list-plain">
+      <li><span><strong>Idea submissions</strong><br><small class="faint">${subLine}</small></span>
+        <span class="row">${!st.enabled ? chip('upcoming', 'Off') : st.open ? chip('live', 'Open') : chip('completed', 'Closed')}${st.enabled ? html`<a class="btn btn-ghost btn-sm" href="#/submissions">${d.ideathon.submissions} in</a>` : ''}</span></li>
+      <li><span><strong>Results</strong><br><small class="faint">${d.ideathon.results_published ? 'Teams can see their awards and notes.' : 'Hidden from teams until you publish.'}</small></span>
+        <span class="row">${d.ideathon.results_published ? chip('selected', 'Published') : chip('upcoming', 'Hidden')}<a class="btn btn-ghost btn-sm" href="#/results">Open</a></span></li>
+    </ul>
+  </section>`;
 }
 
 const stat = (value, label, warn = false) => html`<div class="card stat${warn ? ' is-warn' : ''}"><b>${value}</b><span>${label}</span></div>`;

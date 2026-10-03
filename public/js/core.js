@@ -425,6 +425,9 @@ export function debounce(fn, ms) {
   };
 }
 
+// "Dr. Meera Krishnan" -> "Meera"
+export const firstName = (name) => String(name || '').replace(/^(dr|prof|mr|mrs|ms|miss|shri|smt)\.?\s+/i, '').split(/\s+/)[0];
+
 export function plural(n, one, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }

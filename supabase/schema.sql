@@ -264,7 +264,6 @@ begin
 end $$;
 
 -- Functions whose signature changed in this version.
-drop function if exists public.api_login(text, text, text);
 drop function if exists genesis.create_admin(text, text, text);
 drop function if exists genesis.settings_json();
 drop function if exists genesis.schedule_json();
@@ -946,6 +945,13 @@ begin
   if p_role = 'judge' then update genesis.judges set last_login_at = now() where id = uid; end if;
   return jsonb_build_object('ok', true, 'token', tok, 'role', p_role, 'competition', comp);
 end $$;
+
+-- Sign-in for the previous, Hackathon-only website. It keeps the live site
+-- working between running this script and publishing the new website.
+create or replace function public.api_login(p_role text, p_username text, p_password text) returns jsonb
+language sql security definer set search_path = genesis, extensions, pg_temp as $$
+  select public.api_login('hackathon', p_role, p_username, p_password)
+$$;
 
 create or replace function public.api_logout(p_token text) returns jsonb
 language sql security definer set search_path = genesis, extensions, pg_temp as $$
@@ -2007,7 +2013,7 @@ end $$;
 
 create or replace function genesis.announce_target(p_comp text, p_audience text, p_team bigint) returns text
 language sql immutable as $$
-  select case p_audience when 'all' then 'teams:' || p_comp when 'team' then 'team:' || p_team
+  select case p_audience when 'all' then 'comp:' || p_comp when 'team' then 'team:' || p_team
                          when 'judges' then 'judges' when 'everyone' then 'all' else 'competing' end
 $$;
 
@@ -2029,7 +2035,10 @@ begin
   insert into genesis.announcements (title, body, priority, audience, competition, team_id, pinned, author)
     values (a.title, a.body, a.priority, a.audience, a.competition, a.team_id, a.pinned, u->>'name') returning id into nid;
   perform genesis.notify('announcement', jsonb_build_object('id', nid, 'priority', a.priority), genesis.announce_target(comp, a.audience, a.team_id));
-  perform genesis.notify('announcement', jsonb_build_object('id', nid, 'priority', a.priority), 'admins:' || comp);
+  -- 'all' and 'everyone' already reach this competition's organisers.
+  if a.audience not in ('all', 'everyone') then
+    perform genesis.notify('announcement', jsonb_build_object('id', nid, 'priority', a.priority), 'admins:' || comp);
+  end if;
   return jsonb_build_object('id', nid);
 end $$;
 

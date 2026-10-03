@@ -34,11 +34,22 @@ export function rpcFor(db) {
              coalesce((select array_agg(format_type(t, null) order by i) from unnest(p.proargtypes) with ordinality u(t, i)), '{}') as types
       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
       where n.nspname = 'public' and p.proname like 'api\\_%'`);
-    sigs = new Map(r.rows.map((x) => [x.name, x.names.map((nm, i) => ({ name: nm, type: x.types[i] }))]));
+    sigs = new Map();
+    for (const x of r.rows) {
+      if (!sigs.has(x.name)) sigs.set(x.name, []);
+      sigs.get(x.name).push(x.names.map((nm, i) => ({ name: nm, type: x.types[i] })));
+    }
+  };
+  // Like PostgREST, choose the overload whose parameter names match the call.
+  const pick = (fn, args) => {
+    const all = sigs.get(fn);
+    if (!all) return null;
+    const keys = Object.keys(args).sort().join(',');
+    return all.find((ps) => ps.map((p) => p.name).sort().join(',') === keys) || all.find((ps) => Object.keys(args).every((k) => ps.some((p) => p.name === k))) || all[0];
   };
   const rpc = async (fn, args = {}) => {
     if (!sigs) await load();
-    const params = sigs.get(fn);
+    const params = pick(fn, args);
     if (!params) return { status: 404, body: { code: 'PGRST202', message: `Could not find the function public.${fn}` } };
     const vals = [];
     const parts = params.filter((p) => p.name in args).map((p) => {

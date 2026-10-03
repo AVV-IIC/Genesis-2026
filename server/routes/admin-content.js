@@ -30,7 +30,7 @@ function readAnnouncement(comp, body) {
 }
 
 function target(comp, a) {
-  return { all: `teams:${comp}`, team: `team:${a.team_id}`, judges: 'judges', everyone: 'all', competing: 'competing' }[a.audience];
+  return { all: `comp:${comp}`, team: `team:${a.team_id}`, judges: 'judges', everyone: 'all', competing: 'competing' }[a.audience];
 }
 
 const ownAnnouncement = (req, id) => {
@@ -58,7 +58,8 @@ router.post('/announcements', (req, res) => {
   );
   const payload = { id, title: a.title, priority: a.priority };
   events.emit('announcement', payload, target(comp, a));
-  if (a.audience !== 'everyone') events.emit('announcement', payload, `admins:${comp}`);
+  // 'all' and 'everyone' already reach this competition's organisers (and judges).
+  if (a.audience !== 'everyone' && a.audience !== 'all') events.emit('announcement', payload, `admins:${comp}`);
   res.json({ id });
 });
 

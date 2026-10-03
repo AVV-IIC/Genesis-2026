@@ -1,5 +1,5 @@
 import { $, $$, api, html, raw, setHTML, icon, formModal, confirmDialog, toast, toastError, richText, timeAgo, PRIORITY_LABEL } from '../core.js';
-import { chip, empty } from './shared.js';
+import { chip, empty, scope } from './shared.js';
 
 export const live = ['announcement', 'announcements', 'teams'];
 
@@ -11,7 +11,11 @@ async function loadTeams() {
   return teams;
 }
 
-const AUDIENCE_LABEL = { all: 'All teams', competing: 'Teams still competing', team: 'One team' };
+const AUDIENCES = {
+  hackathon: { all: 'Hackathon teams & judges', competing: 'Teams still competing', team: 'One team', judges: 'Judges only', everyone: 'Everyone (Hackathon + Ideathon)' },
+  ideathon: { all: 'All Ideathon teams', team: 'One team', everyone: 'Everyone (Ideathon + Hackathon)' },
+};
+const audienceLabel = (k) => AUDIENCES[scope.comp][k] || k;
 
 function fields(a = {}, teams = teamsCache, idp = '') {
   const id = (k) => (idp ? raw(`id="${idp}-${k}"`) : '');
@@ -27,10 +31,10 @@ function fields(a = {}, teams = teamsCache, idp = '') {
           ${['normal', 'important', 'urgent'].map((p) => html`<button type="button" data-p="${p}" aria-pressed="${p === priority}">${PRIORITY_LABEL[p]}</button>`)}
         </div>
         <input type="hidden" name="priority" value="${priority}">
-        <span class="hint">Urgent shows a red banner on every team’s screen.</span>
+        <span class="hint">Urgent shows a red banner on everyone’s screen.</span>
       </div>
       <label class="field"><span>Send to</span>
-        <select class="select" name="audience" data-audience>${Object.entries(AUDIENCE_LABEL).map(([k, v]) => html`<option value="${k}" ${k === audience ? raw('selected') : ''}>${v}</option>`)}</select></label>
+        <select class="select" name="audience" data-audience>${Object.entries(AUDIENCES[scope.comp]).map(([k, v]) => html`<option value="${k}" ${k === audience ? raw('selected') : ''}>${v}</option>`)}</select></label>
       <label class="field span-2" data-team-pick ${audience === 'team' ? '' : 'hidden'}><span>Team</span>
         <select class="select" name="team_id">${teams.map((t) => html`<option value="${t.id}" ${t.id === a.team_id ? raw('selected') : ''}>${t.code} · ${t.name}</option>`)}</select></label>
     </div>
@@ -76,7 +80,7 @@ export async function render(ctx, params, seq) {
   setHTML(
     ctx.main,
     html`
-    <div class="page-head"><div><h1 class="page-title">Announcements</h1><p>Posts appear instantly on every team leader’s screen with a notification.</p></div></div>
+    <div class="page-head"><div><h1 class="page-title">Announcements</h1><p>Posts appear instantly on the screens you send them to, with a notification. “Everyone” reaches both competitions.</p></div></div>
     <div class="two-col" style="margin-top:0;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)">
       <form class="card stack" id="an-form" novalidate>
         <h2 class="section-title">Compose</h2>
@@ -97,7 +101,7 @@ export async function render(ctx, params, seq) {
                 ${a.body ? html`<div class="ann-body">${richText(a.body)}</div>` : ''}
                 <div class="ann-meta">
                   <span>${timeAgo(a.created_at)} · ${a.author}</span>
-                  <span>· ${a.audience === 'team' ? `Only ${a.team_code || 'one team'}${a.team_name ? ` (${a.team_name})` : ''}` : AUDIENCE_LABEL[a.audience]}</span>
+                  <span>· ${a.audience === 'team' ? `Only ${a.team_code || 'one team'}${a.team_name ? ` (${a.team_name})` : ''}` : audienceLabel(a.audience)}</span>
                   <span class="grow"></span>
                   <button type="button" class="btn btn-ghost btn-sm" data-pin="${a.id}">${a.pinned ? 'Unpin' : 'Pin'}</button>
                   <button type="button" class="btn btn-ghost btn-sm" data-edit="${a.id}">${icon('edit')}Edit</button>

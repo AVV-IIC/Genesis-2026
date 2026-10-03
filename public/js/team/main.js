@@ -1,9 +1,10 @@
 import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, formValues, withBusy,
-  connectLive, startRouter, preserveInputs, debounce, signOut, richText, timeAgo, fmtTime, fmtDay, fmtDayLong,
-  dayKey, fmtScore, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, guardPage, HOME,
+  connectLive, startRouter, preserveInputs, debounce, signOut, richText, timeAgo, fmtTime, fmtDay,
+  fmtScore, fmtDateTime, STATE_LABEL, TICKET_LABEL, guardPage, HOME, COMP_LABEL,
 } from '../core.js';
-import { setEventTimes, mountDial, eventRangeText } from '../dial.js';
+import { setEventTimes, mountDial, eventRangeText, fmtDuration, phase } from '../dial.js';
+import { chip, empty, annItem, timeline, urgentBar } from '../portal.js';
 
 const main = $('#main');
 const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null };
@@ -24,17 +25,21 @@ function renderChrome() {
   const d = app.data;
   const first = d.event.event_name.split(/\s+/)[0];
   $('#brand-name').textContent = first;
+  $('#brand-comp').textContent = COMP_LABEL[d.competition];
   document.title = `${d.team.name} · ${d.event.event_name}`;
   $('#who-team').textContent = d.team.name;
   $('#who-code').textContent = `${d.team.code}${d.team.leader_name ? ' · ' + d.team.leader_name : ''}`;
 
+  document.body.dataset.comp = d.competition;
+  const ideathon = d.competition === 'ideathon';
   const tabs = [
     ['overview', 'Overview'],
-    ['scorecard', 'Scorecard'],
+    ideathon ? null : ['scorecard', 'Scorecard'],
+    ideathon && d.submission.enabled ? ['idea', 'My idea'] : null,
     ['announcements', 'Announcements', d.unread],
     ['schedule', 'Schedule'],
     ['help', 'Help desk', d.tickets_unread],
-    d.event.leaderboard_visible ? ['leaderboard', 'Leaderboard'] : null,
+    !ideathon && d.event.leaderboard_visible ? ['leaderboard', 'Leaderboard'] : null,
     ['team', 'My team'],
   ].filter(Boolean);
   setHTML(
@@ -47,24 +52,13 @@ function renderChrome() {
 }
 
 function renderUrgent(fresh) {
-  const host = $('#urgent');
   const seen = app.data.announcements_seen_at;
   const a = fresh || (app.data.announcements || []).find((x) => x.priority === 'urgent' && (!seen || x.created_at > seen));
-  if (!a || app.dismissedUrgent === a.id || app.view === 'announcements') return setHTML(host, '');
-  setHTML(
-    host,
-    html`<div class="urgent-bar" role="alert"><div class="wrap-bar">${icon('alert')}<span>Urgent: ${a.title}</span>
-      <a href="#/announcements">Read it</a>
-      <button type="button" class="icon-btn" data-dismiss aria-label="Dismiss">${icon('x')}</button></div></div>`
-  );
-  $('[data-dismiss]', host).addEventListener('click', () => {
-    app.dismissedUrgent = a.id;
-    setHTML(host, '');
-  });
+  const show = a && app.dismissedUrgent !== a.id && app.view !== 'announcements';
+  urgentBar($('#urgent'), show ? a : null, (id) => (app.dismissedUrgent = id));
 }
 
 // ---------- rendering helpers ------------------------------------------------------------
-const chip = (kind, label) => html`<span class="chip chip-${kind}">${label}</span>`;
 
 function roundStep(r) {
   let cls = '';
@@ -97,26 +91,86 @@ function roundStep(r) {
   return html`<li class="${cls}"><span class="node">${node}</span><strong>${r.name}</strong><small>${note}</small></li>`;
 }
 
-function annItem(a, { compact = false, isNew = false } = {}) {
-  return html`<article class="ann ann-${a.priority}${compact ? ' ann-compact' : ''}${isNew ? ' is-new' : ''}">
-    <div class="ann-head">
-      ${a.pinned ? html`<span class="pin" title="Pinned">${icon('pin')}</span>` : ''}
-      ${a.priority !== 'normal' ? chip(a.priority, PRIORITY_LABEL[a.priority]) : ''}
-      ${isNew ? chip('new', 'New') : ''}
-      <h3>${a.title}</h3>
-    </div>
-    ${a.body ? html`<div class="ann-body">${compact && a.body.length > 220 ? a.body.slice(0, 220) + '…' : richText(a.body)}</div>` : ''}
-    <div class="ann-meta"><span>${timeAgo(a.created_at)}</span>${a.author ? html`<span>· ${a.author}</span>` : ''}${a.updated_at ? html`<span>· edited</span>` : ''}</div>
+// ---------- ideathon: no rounds, so status comes from the idea and the final results ----------
+function ideaStanding(d) {
+  const sub = d.submission;
+  const res = d.result;
+  const mine = sub.mine;
+  if (res.published) {
+    return res.award
+      ? { kind: 'finished', title: res.award, text: res.note || 'Congratulations to the whole team. Thank you for taking part!' }
+      : { kind: 'waiting', title: 'Results are out', text: res.note || 'Thank you for taking part. See Announcements for the full list of winners.' };
+  }
+  if (!sub.enabled) {
+    return { kind: 'waiting', title: 'You’re in', text: 'Work on your idea through the 24 hours. Your result will appear here once the organisers publish it.' };
+  }
+  if (mine) {
+    return {
+      kind: 'advancing',
+      title: 'Idea submitted',
+      text: sub.open ? `“${mine.title}”. You can keep improving it until submissions close.` : `“${mine.title}”. Submissions are closed. Your result will appear here.`,
+      countdown: sub.open && sub.deadline ? sub.deadline : null,
+    };
+  }
+  if (sub.open) {
+    return {
+      kind: 'pending',
+      title: 'Submit your idea',
+      text: 'Add your idea any time during the event and keep improving it. The judges see your latest version.',
+      countdown: sub.deadline || null,
+    };
+  }
+  return sub.accepting && sub.deadline
+    ? { kind: 'eliminated', title: 'Submissions closed', text: 'The deadline has passed without an idea from your team. Talk to an organiser if this is a mistake.' }
+    : { kind: 'waiting', title: 'You’re in', text: 'Idea submissions aren’t open yet. Watch Announcements for when they open.' };
+}
+
+function ideaSteps(d) {
+  const sub = d.submission;
+  const ph = phase();
+  const step = (cls, node, title, note) => html`<li class="${cls}"><span class="node">${node}</span><strong>${title}</strong><small>${note}</small></li>`;
+  const out = [step('is-done', icon('check'), 'Registered', 'You’re in')];
+  if (sub.enabled) {
+    if (sub.mine) out.push(step('is-done', icon('check'), 'Idea submitted', `Saved ${timeAgo(sub.mine.updated_at)}`));
+    else if (sub.open) out.push(step('is-now', '2', 'Idea', sub.deadline ? `Due ${fmtDateTime(sub.deadline)}` : 'Open now'));
+    else out.push(step('is-pending', '2', 'Idea', sub.accepting && sub.deadline ? 'Closed' : 'Not open yet'));
+  } else {
+    const kinds = { live: ['is-now', 'Happening now'], after: ['is-done', '24 hours done'], before: ['', 'Starts soon'], unset: ['', 'Time to be announced'] };
+    const [cls, note] = kinds[ph.kind];
+    out.push(step(cls, cls === 'is-done' ? icon('check') : '2', 'Build your idea', note));
+  }
+  out.push(d.result.published ? step('is-done', icon('award'), 'Results', 'Published') : step('', '3', 'Results', 'After judging'));
+  return out;
+}
+
+function ideaReadOnly(s) {
+  const links = [['Pitch deck', s.deck_url], ['Video', s.video_url], ['Other link', s.extra_url]].filter(([, u]) => u);
+  return html`<article class="card stack idea-view">
+    <h2 class="idea-title">${s.title}</h2>
+    <section><span class="label">The problem</span><div>${richText(s.problem)}</div></section>
+    <section><span class="label">Solution</span><div>${richText(s.solution)}</div></section>
+    ${s.impact ? html`<section><span class="label">Impact</span><div>${richText(s.impact)}</div></section>` : ''}
+    ${links.length ? html`<div class="row">${links.map(([label, u]) => html`<a class="btn btn-sm" href="${u}" target="_blank" rel="noopener noreferrer">${icon('link')}${label}</a>`)}</div>` : ''}
+    <p class="small muted">Last saved ${fmtDateTime(s.updated_at)}</p>
   </article>`;
 }
 
-const empty = (title, text, action = '') => html`<div class="empty"><h3>${title}</h3><p>${text}</p>${action}</div>`;
+// Live "closes in" countdowns anywhere on the page.
+function tickCountdowns() {
+  for (const el of $$('[data-countdown]')) {
+    const left = Date.parse(el.dataset.countdown) - clock.now();
+    el.textContent = left > 0 ? fmtDuration(left) : 'now';
+  }
+}
+setInterval(tickCountdowns, 1000);
 
 // ---------- views -------------------------------------------------------------------------
 const VIEWS = {
   overview() {
     const d = app.data;
-    const s = d.standing;
+    const ideathon = d.competition === 'ideathon';
+    const s = ideathon ? ideaStanding(d) : d.standing;
+    const steps = ideathon ? ideaSteps(d) : d.journey.map(roundStep);
     const upcoming = d.upcoming || [];
     setHTML(
       main,
@@ -137,9 +191,14 @@ const VIEWS = {
             <h1 class="standing-title">${s.title}</h1>
             <p class="standing-text">${s.text}</p>
             ${s.award && s.kind !== 'finished' ? html`<p>${chip('award', s.award)}</p>` : ''}
+            ${s.countdown ? html`<p class="deadline-line">${icon('clock')}<span>Submissions close in <b class="mono" data-countdown="${s.countdown}"></b></span></p>` : ''}
           </div>
-          <ol class="path" style="--n:${d.journey.length}" aria-label="Round progress">${d.journey.map(roundStep)}</ol>
-          <div class="row"><a class="btn" href="#/scorecard">${icon('trophy')}Open scorecard</a></div>
+          <ol class="path" style="--n:${steps.length}" aria-label="${ideathon ? 'Your progress' : 'Round progress'}">${steps}</ol>
+          <div class="row">${ideathon
+            ? d.submission.enabled
+              ? html`<a class="btn${d.submission.mine || !d.submission.open ? '' : ' btn-primary'}" href="#/idea">${icon('bulb')}${d.submission.mine ? 'View my idea' : d.submission.open ? 'Submit your idea' : 'My idea'}</a>`
+              : html`<a class="btn" href="#/announcements">${icon('megaphone')}Announcements</a>`
+            : html`<a class="btn" href="#/scorecard">${icon('trophy')}Open scorecard</a>`}</div>
         </section>
       </div>
 
@@ -162,7 +221,92 @@ const VIEWS = {
       </div>`
     );
     mountDial($('[data-dial]', main));
+    tickCountdowns();
     app.reveal = false;
+  },
+
+  async idea(params, seq) {
+    const data = await api('/team/submission');
+    if (seq !== app.seq) return;
+    if (!data.enabled) {
+      setHTML(main, html`<div class="card">${empty('Idea submissions are off', 'The organisers aren’t collecting ideas through the portal for this Ideathon. Follow the announcements for how to present.')}</div>`);
+      return;
+    }
+    const s = data.submission;
+    const locked = !data.open;
+    const closedText = data.accepting && data.deadline ? `The deadline (${fmtDateTime(data.deadline)}) has passed.` : 'The organisers haven’t opened submissions right now.';
+    const head = html`<div class="page-head">
+      <div><h1 class="page-title">My idea</h1><p>${locked
+        ? s ? 'Submissions are closed, so this is the final version the judges will see.' : closedText
+        : 'Save as often as you like. The organisers always see your latest version.'}</p></div>
+      <div class="row">${s ? chip('selected', 'Submitted') : chip(locked ? 'eliminated' : 'pending', locked ? 'Not submitted' : 'Not submitted yet')}
+        ${!locked && data.deadline ? html`<span class="deadline-line">${icon('clock')}<span>Closes in <b class="mono" data-countdown="${data.deadline}"></b></span></span>` : ''}</div>
+    </div>`;
+
+    if (locked) {
+      setHTML(main, html`${head}${s ? ideaReadOnly(s) : html`<div class="card">${empty('No idea on file', closedText + ' Ask at the help desk if you think this is a mistake.')}</div>`}`);
+      tickCountdowns();
+      return;
+    }
+
+    const v = s || {};
+    setHTML(
+      main,
+      html`${head}
+      <div class="idea-grid">
+        <form class="card stack" id="idea-form" novalidate>
+          <label class="field"><span>Idea title <span class="hint">Up to 120 characters</span></span>
+            <input class="input" id="idea-title" name="title" maxlength="120" value="${v.title || ''}" placeholder="A short, memorable name for your idea" required></label>
+          <label class="field"><span>The problem <span class="hint">Who has it, and why it matters</span></span>
+            <textarea class="textarea" id="idea-problem" name="problem" maxlength="2000" rows="5" required>${v.problem || ''}</textarea></label>
+          <label class="field"><span>Your solution <span class="hint">What you’d build and how it works</span></span>
+            <textarea class="textarea" id="idea-solution" name="solution" maxlength="3000" rows="7" required>${v.solution || ''}</textarea></label>
+          <label class="field"><span>Impact <span class="hint">Optional · who benefits and how you’d measure it</span></span>
+            <textarea class="textarea" id="idea-impact" name="impact" maxlength="1500" rows="4">${v.impact || ''}</textarea></label>
+          <div class="grid-3">
+            <label class="field"><span>Pitch deck link</span><input class="input" id="idea-deck" name="deck_url" type="url" maxlength="500" value="${v.deck_url || ''}" placeholder="https://"></label>
+            <label class="field"><span>Video link</span><input class="input" id="idea-video" name="video_url" type="url" maxlength="500" value="${v.video_url || ''}" placeholder="https://"></label>
+            <label class="field"><span>Other link</span><input class="input" id="idea-extra" name="extra_url" type="url" maxlength="500" value="${v.extra_url || ''}" placeholder="https://"></label>
+          </div>
+          <div class="form-error" role="alert"></div>
+          <div class="row-between">
+            <span class="small muted">${s ? `Last saved ${timeAgo(s.updated_at)}` : 'Not saved yet'}</span>
+            <button class="btn btn-primary" type="submit">${icon('check')}${s ? 'Save changes' : 'Submit idea'}</button>
+          </div>
+        </form>
+        <aside class="card stack-sm idea-tips">
+          <h2 class="section-title">Tips</h2>
+          <ul class="tips">
+            <li>Lead with the problem. Judges remember a sharp problem statement.</li>
+            <li>Keep the solution concrete: who uses it, and what happens step by step.</li>
+            <li>Share links as “anyone with the link can view”, or judges won’t be able to open them.</li>
+            <li>You can keep editing until submissions close.</li>
+          </ul>
+        </aside>
+      </div>`
+    );
+    tickCountdowns();
+    const form = $('#idea-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = $('.form-error', form);
+      err.textContent = '';
+      const body = formValues(form);
+      if (!body.title.trim() || !body.problem.trim() || !body.solution.trim()) {
+        err.textContent = 'Add a title, the problem and your solution.';
+        return;
+      }
+      await withBusy($('button[type=submit]', form), async () => {
+        try {
+          const res = await api('/team/submission', { method: 'PUT', body });
+          app.data.submission.mine = res.submission;
+          toast(s ? 'Changes saved.' : 'Idea submitted. You can keep editing until submissions close.', 'ok');
+          render();
+        } catch (ex) {
+          err.textContent = ex.message;
+        }
+      });
+    });
   },
 
   scorecard() {
@@ -344,40 +488,13 @@ function roundCard(r) {
       const pct = c.score === null ? 0 : Math.max(0, Math.min(100, (c.score / c.max_score) * 100));
       return html`<div class="crit"><span>${c.name}</span><div class="bar" role="img" aria-label="${c.name}: ${fmtScore(c.score)} of ${fmtScore(c.max_score)}"><i style="width:${pct.toFixed(1)}%"></i></div><span class="mono">${fmtScore(c.score)} / ${fmtScore(c.max_score)}</span></div>`;
     })}</div>
-    ${r.comments ? html`<div class="notes"><span class="label">Judges’ notes</span><p>${r.comments}</p></div>` : ''}
+    ${r.comments ? html`<div class="notes"><span class="label">${r.feedback?.length ? 'Organisers’ summary' : 'Judges’ notes'}</span><p>${r.comments}</p></div>` : ''}
+    ${r.feedback?.length
+      ? html`<div class="notes"><span class="label">Judges’ comments</span><div class="feedback">${r.feedback.map(
+          (f) => html`<div class="fb"><strong>${f.label}</strong><p>${f.comments}</p></div>`
+        )}</div></div>`
+      : ''}
   </section>`;
-}
-
-const KIND_LABEL = { round: 'Round', deadline: 'Deadline', food: 'Food', talk: 'Talk' };
-const KIND_CHIP = { round: 'judging', deadline: 'eliminated', food: 'advanced', talk: 'pending' };
-
-function timeline(items) {
-  const now = clock.now();
-  const groups = new Map();
-  for (const e of items) {
-    const k = dayKey(e.starts_at);
-    if (!groups.has(k)) groups.set(k, []);
-    groups.get(k).push(e);
-  }
-  let nextMarked = false;
-  return html`<div class="timeline">${[...groups.values()].map(
-    (list) => html`<section class="tl-day"><h2>${fmtDayLong(list[0].starts_at)}</h2><ol class="tl-items">${list.map((e) => {
-      const start = Date.parse(e.starts_at);
-      const end = e.ends_at ? Date.parse(e.ends_at) : start + 15 * 60000;
-      const state = end < now ? 'is-past' : start <= now ? 'is-now' : '';
-      let tag = '';
-      if (state === 'is-now') tag = chip('live', 'Happening now');
-      else if (!state && !nextMarked) {
-        nextMarked = true;
-        tag = chip('open', 'Up next');
-      }
-      return html`<li class="tl-item ${state} kind-${e.kind}">
-        <span class="tl-time">${fmtTime(e.starts_at)}${e.ends_at ? html`<br><span class="faint">– ${fmtTime(e.ends_at)}</span>` : ''}</span>
-        <div class="tl-body"><h3>${e.title}</h3>${e.details ? html`<p>${e.details}</p>` : ''}
-          <div class="row">${tag}${KIND_LABEL[e.kind] ? chip(KIND_CHIP[e.kind], KIND_LABEL[e.kind]) : ''}${e.location ? html`<span class="small muted">${e.location}</span>` : ''}</div></div>
-      </li>`;
-    })}</ol></section>`
-  )}</div>`;
 }
 
 // ---------- help desk bits --------------------------------------------------------------------
@@ -467,7 +584,14 @@ function changePassword() {
 // ---------- routing + live updates -------------------------------------------------------------
 async function render() {
   const view = VIEWS[app.view] ? app.view : 'overview';
-  if (view === 'leaderboard' && !app.data.event.leaderboard_visible) {
+  const d = app.data;
+  const ideathon = d.competition === 'ideathon';
+  const hidden = {
+    leaderboard: ideathon || !d.event.leaderboard_visible,
+    scorecard: ideathon,
+    idea: !ideathon || !d.submission.enabled,
+  };
+  if (hidden[view]) {
     location.hash = '#/overview';
     return;
   }
@@ -536,7 +660,7 @@ function onRoute(view, params) {
       announcements: refresh,
       results(e) {
         if (e.kind === 'published') {
-          toast(`Round ${e.round} results are out.`, 'ember', { title: 'Results published', action: { label: 'View', onClick: () => (location.hash = '#/overview') } });
+          toast(e.round ? `Round ${e.round} results are out.` : 'The final results are out.', 'ember', { title: 'Results published', action: { label: 'View', onClick: () => (location.hash = '#/overview') } });
           app.reveal = true;
         }
         refresh();

@@ -51,6 +51,10 @@ section('upgrade from the live single-competition schema keeps all data');
   ok(ov.markers.length === 1, 'schedule kept');
   const r = await rpc('api_admin_teams', { p_token: A });
   ok(r.status === 200 && r.body.teams.length === 1 && r.body.competition === 'hackathon', 'old admin session still valid and hackathon', r.body);
+  const legacy = await rpc('api_login', { p_role: 'admin', p_username: 'admin1', p_password: 'old-admin-pass' });
+  ok(legacy.status === 200 && legacy.body.token && legacy.body.competition === 'hackathon', 'old website sign-in still works after upgrade', legacy.body);
+  const legacyTeam = await rpc('api_login', { p_role: 'team', p_username: team.team.code, p_password: 'wrong' });
+  ok(legacyTeam.body.__error && legacyTeam.body.status === 401, 'old sign-in still checks passwords', legacyTeam.body);
   const keys = (await db.query(`select key from genesis.settings order by key`)).rows.map((x) => x.key);
   ok(keys.every((k) => k.startsWith('hackathon:')), 'settings keys prefixed', keys);
 }
@@ -225,7 +229,7 @@ r = await call('api_admin_announcement_create', { p_token: IA, p_body: { title: 
 ok(r.status === 400, 'ideathon cannot target judges', r);
 const s2 = await sent();
 ok(s2.every((p) => !JSON.stringify(p).includes('Room 4') && !JSON.stringify(p).includes('Dinner')), 'announcement broadcasts carry no text', s2);
-ok(s2.some((p) => p.target === 'judges') && s2.some((p) => p.target === 'all') && s2.some((p) => p.target === 'teams:ideathon'), 'announcement targets', s2.map((p) => p.target));
+ok(s2.some((p) => p.target === 'judges') && s2.some((p) => p.target === 'all') && s2.some((p) => p.target === 'comp:ideathon'), 'announcement targets', s2.map((p) => p.target));
 r = await data('api_judge_announcements', { p_token: J1 });
 ok(r.announcements.some((a) => a.title === 'Judges: meet in Room 4') && r.announcements.some((a) => a.title === 'Dinner for everyone') && !r.announcements.some((a) => a.title === 'Ideathon only'), 'judge announcements', r.announcements.map((a) => a.title));
 r = await data('api_team_announcements', { p_token: T1 });

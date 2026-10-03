@@ -1,15 +1,29 @@
-import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal } from '../core.js';
+import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, COMP_LABEL } from '../core.js';
+
+const RESET = {
+  hackathon: {
+    scores: ['Clear all scores', 'This deletes every score, decision, judge mark and comment, and unpublishes all rounds. Teams, judges, announcements and the schedule are kept.', 'All scores cleared.'],
+    everything: ['Delete teams & all Hackathon data', 'This deletes every Hackathon team, judge, score, result, announcement, help request and schedule item. Rounds, criteria, settings and organiser accounts are kept. The Ideathon is not touched.', 'All Hackathon data deleted.'],
+  },
+  ideathon: {
+    scores: ['Clear ideas & results', 'This deletes every submitted idea and every award and note, and hides the results again. Teams, announcements and the schedule are kept.', 'Ideas and results cleared.'],
+    everything: ['Delete teams & all Ideathon data', 'This deletes every Ideathon team, idea, result, announcement, help request and schedule item. Settings and organiser accounts are kept. The Hackathon is not touched.', 'All Ideathon data deleted.'],
+  },
+};
 
 export async function render(ctx, params, seq) {
   const [{ settings: s }, { admins, me }] = await Promise.all([api('/admin/settings'), api('/admin/admins')]);
   if (!ctx.isCurrent(seq)) return;
+  const comp = ctx.comp;
+  const ideathon = comp === 'ideathon';
+  const label = COMP_LABEL[comp];
   const toggle = (key, title, text) =>
     html`<div class="switch-row"><div><strong>${title}</strong><small>${text}</small></div><input type="checkbox" class="switch" data-toggle="${key}" ${s[key] === '1' ? 'checked' : ''} aria-label="${title}"></div>`;
 
   setHTML(
     ctx.main,
     html`
-    <div class="page-head"><div><h1 class="page-title">Settings</h1><p>Event details, what team leaders can see, organiser accounts and your data.</p></div></div>
+    <div class="page-head"><div><h1 class="page-title">Settings</h1><p>${label} details, what team leaders can see, organiser accounts and your data. These settings only affect the ${label}.</p></div></div>
     <div class="two-col" style="margin-top:0;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)">
       <form class="card stack" id="st-event" novalidate>
         <h2 class="section-title">Event</h2>
@@ -17,10 +31,13 @@ export async function render(ctx, params, seq) {
         <label class="field"><span>Tagline <span class="hint">Shown on the sign-in page</span></span><input class="input" name="tagline" id="st-tagline" value="${s.tagline}" maxlength="160"></label>
         <label class="field"><span>Venue</span><input class="input" name="venue" id="st-venue" value="${s.venue}" maxlength="160" placeholder="e.g. Main Auditorium, ABC College"></label>
         <div class="form-grid">
-          <label class="field"><span>Hackathon starts</span><input class="input" type="datetime-local" name="event_start" id="st-start" value="${toLocalInput(s.event_start)}"></label>
-          <label class="field"><span>Hackathon ends</span><input class="input" type="datetime-local" name="event_end" id="st-end" value="${toLocalInput(s.event_end)}"></label>
+          <label class="field"><span>${label} starts</span><input class="input" type="datetime-local" name="event_start" id="st-start" value="${toLocalInput(s.event_start)}"></label>
+          <label class="field"><span>${label} ends</span><input class="input" type="datetime-local" name="event_end" id="st-end" value="${toLocalInput(s.event_end)}"></label>
         </div>
         <p class="small faint" style="margin-top:-6px">Times are in this device’s time zone. The countdown dial runs from start to end.</p>
+        ${ideathon
+          ? html`<label class="field"><span>Idea submission deadline <span class="hint">Optional. Teams can’t edit their idea after this</span></span><input class="input" type="datetime-local" name="submission_deadline" id="st-deadline" value="${toLocalInput(s.submission_deadline)}" style="max-width:280px"></label>`
+          : ''}
         <label class="field"><span>Team ID prefix <span class="hint">New teams get IDs like ${s.team_code_prefix}001</span></span><input class="input mono" name="team_code_prefix" id="st-prefix" value="${s.team_code_prefix}" maxlength="8" style="max-width:160px"></label>
         <label class="field"><span>Help desk contact <span class="hint">Shown on the team help desk page, e.g. organiser phone numbers</span></span>
           <textarea class="textarea" name="helpdesk_contact" id="st-contact" rows="3" maxlength="600" placeholder="Rohit: 98xxxxxx01&#10;Help desk: near the main stage">${s.helpdesk_contact}</textarea></label>
@@ -31,10 +48,18 @@ export async function render(ctx, params, seq) {
       <div class="stack">
         <section class="card">
           <h2 class="section-title" style="margin-bottom:4px">Team portal</h2>
-          ${toggle('leaderboard_visible', 'Show leaderboard to teams', 'Totals from published rounds, visible to every team leader.')}
+          ${ideathon ? '' : toggle('leaderboard_visible', 'Show leaderboard to teams', 'Totals from published rounds, visible to every team leader.')}
           ${toggle('helpdesk_open', 'Help desk open', 'Team leaders can raise new help requests.')}
           ${toggle('allow_password_change', 'Teams can change their password', 'Off keeps the passwords on your printed slips valid.')}
         </section>
+
+        ${ideathon
+          ? html`<section class="card">
+              <h2 class="section-title" style="margin-bottom:4px">Idea submission</h2>
+              ${toggle('submissions_enabled', 'Collect ideas through the portal', 'Teams get a “My idea” page to describe their idea and share links. Turn off if you don’t need it.')}
+              ${s.submissions_enabled === '1' ? toggle('submissions_open', 'Accepting submissions', 'Off locks every idea, e.g. before the event starts or once judging begins.') : ''}
+            </section>`
+          : ''}
 
         <section class="card">
           <h2 class="section-title" style="margin-bottom:8px">Organiser accounts</h2>
@@ -56,16 +81,19 @@ export async function render(ctx, params, seq) {
           <h2 class="section-title" style="margin-bottom:12px">Data</h2>
           <div class="row">
             <button type="button" class="btn btn-sm" data-download="results">${icon('download')}Results CSV</button>
+            ${ideathon ? html`<button type="button" class="btn btn-sm" data-download="submissions">${icon('download')}Ideas CSV</button>` : ''}
             <button type="button" class="btn btn-sm" data-download="teams">${icon('download')}Teams CSV</button>
             <button type="button" class="btn btn-sm" data-download="backup">${icon('download')}Full backup</button>
           </div>
-          <p class="small faint" style="margin-top:10px">Download a backup before and after each round. It holds every team, score, decision, note, announcement and help request (never passwords).</p>
+          <p class="small faint" style="margin-top:10px">${ideathon
+            ? 'Download a backup before and after the event. It holds every Ideathon team, idea, result, announcement and help request (never passwords).'
+            : 'Download a backup before and after each round. It holds every Hackathon team, judge, score, decision, note, announcement and help request (never passwords).'}</p>
           <hr class="divider">
           <h3 style="font-size:15px;margin-bottom:4px;color:var(--bad)">Danger zone</h3>
           <p class="small muted" style="margin-bottom:12px">Use this to clear test data before the event starts.</p>
           <div class="row">
-            <button type="button" class="btn btn-sm btn-danger" data-reset="scores">Clear all scores</button>
-            <button type="button" class="btn btn-sm btn-danger" data-reset="everything">Delete teams & all event data</button>
+            <button type="button" class="btn btn-sm btn-danger" data-reset="scores">${RESET[comp].scores[0]}</button>
+            <button type="button" class="btn btn-sm btn-danger" data-reset="everything">${RESET[comp].everything[0]}</button>
           </div>
         </section>
       </div>
@@ -80,6 +108,7 @@ export async function render(ctx, params, seq) {
     const v = Object.fromEntries(new FormData(form));
     v.event_start = fromLocalInput(v.event_start);
     v.event_end = fromLocalInput(v.event_end);
+    if ('submission_deadline' in v) v.submission_deadline = fromLocalInput(v.submission_deadline);
     await withBusy($('button[type=submit]', form), async () => {
       try {
         await api('/admin/settings', { method: 'PUT', body: v });
@@ -96,7 +125,8 @@ export async function render(ctx, params, seq) {
       try {
         await api('/admin/settings', { method: 'PUT', body: { [sw.dataset.toggle]: sw.checked } });
         toast('Saved.', 'ok', { timeout: 1800 });
-        ctx.refreshMeta();
+        await ctx.refreshMeta();
+        if (sw.dataset.toggle === 'submissions_enabled') ctx.rerender();
       } catch (err) {
         sw.checked = !sw.checked;
         toastError(err);
@@ -164,20 +194,19 @@ export async function render(ctx, params, seq) {
   $$('[data-reset]').forEach((b) =>
     b.addEventListener('click', () => {
       const everything = b.dataset.reset === 'everything';
+      const [title, message, done] = RESET[comp][everything ? 'everything' : 'scores'];
       formModal({
-        title: everything ? 'Delete all event data' : 'Clear all scores',
-        submitLabel: everything ? 'Delete everything' : 'Clear scores',
+        title,
+        submitLabel: everything ? 'Delete everything' : 'Clear',
         danger: true,
         content: html`
-          <p class="muted">${everything
-            ? 'This deletes every team, score, result, announcement, help request and schedule item. Rounds, criteria, settings and organiser accounts are kept.'
-            : 'This deletes every score, decision and judges’ note, and unpublishes all rounds. Teams, announcements and the schedule are kept.'}</p>
+          <p class="muted">${message}</p>
           <p class="muted">This can’t be undone. Download a backup first if you might need this data.</p>
           <label class="field"><span>Type RESET to confirm</span><input class="input mono" name="confirm" autocomplete="off" required></label>`,
         async onSubmit(v) {
           if (v.confirm !== 'RESET') throw new Error('Type RESET in capitals to confirm.');
           await api('/admin/reset', { method: 'POST', body: { confirm: v.confirm, scope: everything ? 'everything' : 'scores' } });
-          toast(everything ? 'All event data deleted.' : 'All scores cleared.', 'ok');
+          toast(done, 'ok');
           ctx.rerender();
         },
       });

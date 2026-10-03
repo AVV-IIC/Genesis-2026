@@ -1,5 +1,5 @@
 import {
-  $, $$, api, html, raw, setHTML, icon, formModal, confirmDialog, toast, toastError, fmtScore, fmtDateTime, withBusy, STATE_LABEL,
+  $, $$, api, html, raw, setHTML, icon, formModal, confirmDialog, openModal, toast, toastError, fmtScore, fmtDateTime, timeAgo, withBusy, STATE_LABEL,
 } from '../core.js';
 import { chip, empty } from './shared.js';
 
@@ -68,7 +68,7 @@ export function onEvent(type, data, ctx) {
     else api(`/admin/rounds/${data.round_id}/sheet/${data.team_id}`).then((r) => apply(r.row)).catch(() => {});
     return true;
   }
-  if (['rounds', 'results', 'teams'].includes(type)) {
+  if (['rounds', 'results', 'teams', 'judges'].includes(type)) {
     if (busy()) S.needsRerender = true;
     else ctx.rerender();
     return true;
@@ -92,6 +92,7 @@ function statusOptions(round, value) {
 function draw(ctx) {
   const r = S.round;
   const awaiting = S.rows.filter((x) => x.active && x.awaiting_round).length;
+  const judged = S.rows.some((x) => x.judges && x.judges.assigned);
   setHTML(
     ctx.main,
     html`
@@ -157,6 +158,7 @@ function draw(ctx) {
       </div>
     </details>
 
+    ${judged ? html`<div class="callout" style="margin-bottom:14px">${icon('gavel')}<span><strong>Judges are scoring this round.</strong> Grey numbers are the average of each team’s assigned judges. Type a mark to override it for that team; clear it to go back to the judges’ average. <a href="#/judges/${r.number}">Manage judge assignments</a></span></div>` : ''}
     ${awaiting ? html`<div class="callout callout-warn" style="margin-bottom:14px">${icon('alert')}<span>${awaiting} team${awaiting === 1 ? ' has' : 's have'} no decision in Round ${r.number - 1}, so ${awaiting === 1 ? 'it isn’t' : 'they aren’t'} listed here. <a href="#/rounds/${r.number - 1}">Decide in Round ${r.number - 1}</a> first.</span></div>` : ''}
 
     <div class="toolbar">
@@ -174,7 +176,7 @@ function draw(ctx) {
           ? empty('No teams yet', 'Add teams on the Teams page first.', html`<a class="btn" href="#/teams">Go to Teams</a>`)
           : html`<div class="table-wrap" style="max-height:72vh"><table class="table sheet">
               <thead><tr><th>Team</th>${r.criteria.map((c) => html`<th class="num" title="${c.name}">${c.name}<br><span class="faint">/${fmtScore(c.max_score)}</span></th>`)}
-                <th class="num">Total<br><span class="faint">/${fmtScore(r.max_total)}</span></th><th>${r.is_elimination ? 'Decision' : 'Status'}</th><th>Judges’ notes</th><th><span class="sr-only">Save status</span></th></tr></thead>
+                <th class="num">Total<br><span class="faint">/${fmtScore(r.max_total)}</span></th><th class="num">Judges</th><th>${r.is_elimination ? 'Decision' : 'Status'}</th><th>Notes</th><th><span class="sr-only">Save status</span></th></tr></thead>
               <tbody id="s-body"></tbody></table></div>`}
     </section>`
   );
@@ -196,21 +198,22 @@ function rowHtml(row) {
   const r = S.round;
   const disabled = !row.eligible;
   const open = S.openNotes.has(row.team_id);
-  const cols = r.criteria.length + 5;
+  const cols = r.criteria.length + 6;
   return html`<tr data-team="${row.team_id}" class="${disabled ? 'is-ineligible' : ''}">
       <td class="team-cell"><strong>${row.name}</strong><small>${row.code}${row.table_no ? ` · T${row.table_no}` : ''}${!row.active ? ' · disabled' : row.eliminated_in ? ` · out in R${row.eliminated_in}` : row.awaiting_round ? ` · no R${row.awaiting_round} decision` : ''}</small></td>
       ${r.criteria.map(
         (c) => html`<td class="num"><input class="input score-input" type="number" inputmode="decimal" min="0" max="${c.max_score}" step="any"
-          id="s-${row.team_id}-${c.id}" data-crit="${c.id}" value="${row.scores[c.id] ?? ''}" aria-label="${c.name} score for ${row.name}" ${disabled ? 'disabled' : ''}></td>`
+          id="s-${row.team_id}-${c.id}" data-crit="${c.id}" value="${row.scores[c.id] ?? ''}" placeholder="${avgOf(row, c.id)}" aria-label="${c.name} score for ${row.name}${avgOf(row, c.id) ? ` (judges’ average ${avgOf(row, c.id)})` : ''}" ${disabled ? 'disabled' : ''}></td>`
       )}
       <td class="num total" data-total>${fmtScore(row.total)}</td>
+      <td class="num" data-judges-cell>${judgesCell(row)}</td>
       <td><select class="select status-select" id="st-${row.team_id}" data-v="${row.status}" aria-label="Decision for ${row.name}" ${disabled ? 'disabled' : ''}>${statusOptions(r, row.status)}</select></td>
       <td><button type="button" class="btn btn-ghost btn-sm" data-notes aria-expanded="${open}">${row.comments || row.award ? 'Edit notes' : 'Add notes'}${row.award ? html` ${chip('award', row.award)}` : ''}</button></td>
       <td><span class="save-state" data-save title=""></span></td>
     </tr>
     <tr class="notes-row" data-notes-for="${row.team_id}" ${open ? '' : 'hidden'}>
       <td colspan="${cols}"><div class="sheet-note">
-        <label class="field"><span>Judges’ comments <span class="hint">The team sees this once the round is published</span></span>
+        <label class="field"><span>Comments for the team <span class="hint">Shown once the round is published${row.judges && row.judges.assigned ? ', with the judges’ own comments' : ''}</span></span>
           <textarea class="textarea" rows="3" id="c-${row.team_id}" maxlength="4000" ${disabled ? 'disabled' : ''}>${row.comments}</textarea></label>
         <label class="field"><span>Award <span class="hint">Optional, e.g. Winner, Best UI</span></span>
           <input class="input" id="a-${row.team_id}" maxlength="80" value="${row.award}" ${disabled ? 'disabled' : ''}></label>
@@ -222,7 +225,7 @@ function drawRows() {
   const body = $('#s-body');
   if (!body) return;
   const list = visibleRows();
-  setHTML(body, list.length ? list.map(rowHtml) : html`<tr><td colspan="${S.round.criteria.length + 5}" class="muted" style="text-align:center;padding:28px">No teams match.</td></tr>`);
+  setHTML(body, list.length ? list.map(rowHtml) : html`<tr><td colspan="${S.round.criteria.length + 6}" class="muted" style="text-align:center;padding:28px">No teams match.</td></tr>`);
 }
 
 function drawProgress() {
@@ -243,9 +246,12 @@ function patchRow(row, flash) {
   if (!tr) return;
   for (const c of S.round.criteria) {
     const input = $(`[data-crit="${c.id}"]`, tr);
-    if (input && document.activeElement !== input) input.value = row.scores[c.id] ?? '';
+    if (!input) continue;
+    input.placeholder = avgOf(row, c.id);
+    if (document.activeElement !== input) input.value = row.scores[c.id] ?? '';
   }
   $('[data-total]', tr).textContent = fmtScore(row.total);
+  setHTML($('[data-judges-cell]', tr), judgesCell(row));
   const sel = $('.status-select', tr);
   sel.value = !S.round.is_elimination && row.status === 'selected' ? 'pending' : row.status;
   sel.dataset.v = row.status;
@@ -270,6 +276,7 @@ function setSaveState(tr, s, title = '') {
 }
 
 function readRow(tr, round = S.round) {
+  const row = S.round && S.round.id === round.id ? S.rows.find((x) => x.team_id === Number(tr.dataset.team)) : null;
   const scores = {};
   let valid = true;
   let total = 0;
@@ -280,6 +287,12 @@ function readRow(tr, round = S.round) {
     input.removeAttribute('aria-invalid');
     if (val === '') {
       scores[c.id] = null;
+      // An empty box falls back to the judges' average.
+      const avg = row?.judge_avg?.[c.id];
+      if (avg !== undefined && avg !== null) {
+        total += Number(avg);
+        any = true;
+      }
       continue;
     }
     const n = Number(val);
@@ -373,6 +386,8 @@ function bind(ctx) {
       }
     });
     body.addEventListener('click', (e) => {
+      const jb = e.target.closest('[data-judges]');
+      if (jb) return showJudges(Number(jb.closest('tr').dataset.team));
       const btn = e.target.closest('[data-notes]');
       if (!btn) return;
       const tr = btn.closest('tr');
@@ -488,6 +503,54 @@ function bind(ctx) {
   $('#s-auto')?.addEventListener('click', () => autoSelect(ctx));
   $('#r-publish')?.addEventListener('click', () => publish(ctx));
   $('#r-unpublish')?.addEventListener('click', () => unpublish(ctx));
+}
+
+// ---------- judges' marks ------------------------------------------------------------------------
+const avgOf = (row, critId) => {
+  const v = row.judge_avg ? row.judge_avg[critId] : undefined;
+  return v === undefined || v === null ? '' : fmtScore(Number(v));
+};
+
+function judgesCell(row) {
+  const j = row.judges || { assigned: 0, done: 0 };
+  if (!j.assigned) return html`<span class="faint small">–</span>`;
+  return html`<button type="button" class="btn btn-ghost btn-sm judges-btn${j.done >= j.assigned ? ' is-complete' : ''}" data-judges title="See each judge’s marks">${j.done}/${j.assigned}</button>`;
+}
+
+async function showJudges(teamId) {
+  const r = S.round;
+  let data;
+  try {
+    data = await api(`/admin/rounds/${r.id}/sheet/${teamId}/judges`);
+  } catch (err) {
+    return toastError(err);
+  }
+  const row = S.rows.find((x) => x.team_id === teamId) || {};
+  openModal({
+    title: `${data.team.name} · Round ${r.number}`,
+    wide: true,
+    form: false,
+    content: html`
+      ${data.judges.length
+        ? html`<div class="table-wrap"><table class="table">
+            <thead><tr><th>Judge</th>${r.criteria.map((c) => html`<th class="num">${c.name}<br><span class="faint">/${fmtScore(c.max_score)}</span></th>`)}<th class="num">Total</th><th>Status</th></tr></thead>
+            <tbody>${data.judges.map(
+              (j) => html`<tr>
+                <td class="team-cell"><strong>${j.judge_name}</strong><small>${j.judge_username}${j.updated_at ? ` · ${timeAgo(j.updated_at)}` : ''}</small></td>
+                ${r.criteria.map((c) => html`<td class="num">${fmtScore(j.scores[c.id] ?? null)}</td>`)}
+                <td class="num"><strong>${fmtScore(j.total)}</strong></td>
+                <td>${j.done ? chip('selected', 'Done') : Object.keys(j.scores).length ? chip('pending', 'In progress') : chip('upcoming', 'Not started')}</td>
+              </tr>`
+            )}</tbody>
+            <tfoot><tr><th>Official</th>${r.criteria.map((c) => html`<td class="num">${row.scores && row.scores[c.id] !== undefined ? html`<strong title="Your override">${fmtScore(row.scores[c.id])}</strong>` : avgOf(row, c.id) || '–'}</td>`)}<td class="num"><strong>${fmtScore(row.total)}</strong></td><td class="small muted">${Object.keys(row.scores || {}).length ? 'Bold = your override' : 'Judges’ average'}</td></tr></tfoot>
+          </table></div>
+          ${data.judges.some((j) => j.comments)
+            ? html`<div class="stack-sm" style="margin-top:16px"><span class="label">Judges’ comments <span class="faint">(teams see these as “Judge 1”, “Judge 2”…)</span></span>
+                ${data.judges.filter((j) => j.comments).map((j) => html`<div class="fb"><strong>${j.judge_name}</strong><p>${j.comments}</p></div>`)}</div>`
+            : html`<p class="small muted" style="margin-top:12px">No comments from the judges yet.</p>`}`
+        : empty('No judges assigned', 'Assign judges to this team on the Judges page.', html`<a class="btn" href="#/judges/${r.number}" data-close>Go to Judges</a>`)}`,
+    footer: html`<button type="button" class="btn btn-primary" data-close>Close</button>`,
+  });
 }
 
 function autoSelect(ctx) {
