@@ -26,6 +26,15 @@ function roundProgress() {
         : eligible.length,
       selected: eligible.filter((x) => x.status === 'selected').length,
       eliminated: eligible.filter((x) => x.status === 'eliminated').length,
+      judging: {
+        assigned: q.get('SELECT COUNT(*) AS n FROM judge_assignments WHERE round_id = ?', r.id).n,
+        done: q.get(
+          `SELECT COUNT(*) AS n FROM judge_feedback jf
+             JOIN judge_assignments ja ON ja.judge_id = jf.judge_id AND ja.team_id = jf.team_id AND ja.round_id = jf.round_id
+            WHERE jf.round_id = ? AND jf.submitted_at IS NOT NULL`,
+          r.id
+        ).n,
+      },
     };
   });
 }
@@ -41,7 +50,7 @@ router.put('/rounds/:id', (req, res) => {
   const isElim = req.body.is_elimination === undefined ? r.is_elimination : bool(req.body.is_elimination);
   const state = req.body.state === undefined ? r.state : oneOf(req.body.state, ['upcoming', 'live', 'judging', 'completed'], 'State');
   q.run('UPDATE rounds SET name = ?, description = ?, is_elimination = ?, state = ? WHERE id = ?', name, description, isElim, state, r.id);
-  events.emit('rounds', { round: r.number }, 'all');
+  events.emit('rounds', { round: r.number }, 'comp:hackathon');
   res.json({ round: getRound(r.id) });
 });
 
@@ -52,7 +61,7 @@ router.post('/rounds/:id/criteria', (req, res) => {
   if (r.criteria.length >= 12) fail(400, 'A round can have up to 12 criteria.');
   const sort = r.criteria.length ? Math.max(...r.criteria.map((c) => c.sort)) + 1 : 0;
   q.run('INSERT INTO criteria (round_id, name, max_score, sort) VALUES (?, ?, ?, ?)', r.id, name, max, sort);
-  events.emit('rounds', { round: r.number }, 'all');
+  events.emit('rounds', { round: r.number }, 'comp:hackathon');
   res.json({ round: getRound(r.id) });
 });
 
@@ -62,10 +71,14 @@ router.put('/criteria/:id', (req, res) => {
   if (!c) fail(404, 'That criterion doesn’t exist.');
   const name = str(req.body.name, { label: 'Criterion name', max: 80, required: true });
   const max = num(req.body.max_score, { label: 'Maximum score', min: 1, max: 1000 });
-  const highest = q.get('SELECT MAX(score) AS m FROM scores WHERE criterion_id = ?', id).m;
+  const highest = q.get(
+    'SELECT MAX(x) AS m FROM (SELECT score AS x FROM scores WHERE criterion_id = ? UNION ALL SELECT score FROM judge_scores WHERE criterion_id = ?)',
+    id,
+    id
+  ).m;
   if (highest !== null && highest > max) fail(400, `Some teams already scored ${highest} here. Set the maximum to at least ${highest}.`);
   q.run('UPDATE criteria SET name = ?, max_score = ? WHERE id = ?', name, max, id);
-  events.emit('rounds', {}, 'all');
+  events.emit('rounds', {}, 'comp:hackathon');
   res.json({ round: getRound(c.round_id) });
 });
 
@@ -74,7 +87,7 @@ router.delete('/criteria/:id', (req, res) => {
   const c = q.get('SELECT * FROM criteria WHERE id = ?', id);
   if (!c) fail(404, 'That criterion doesn’t exist.');
   q.run('DELETE FROM criteria WHERE id = ?', id);
-  events.emit('rounds', {}, 'all');
+  events.emit('rounds', {}, 'comp:hackathon');
   res.json({ round: getRound(c.round_id) });
 });
 
@@ -90,10 +103,29 @@ router.get('/rounds/:id/sheet/:teamId', (req, res) => {
   res.json({ row: sheet.rows.find((r) => r.team_id === idParam(req.params.teamId)) || null });
 });
 
+// Each assigned judge's marks and comments for one team in one round.
+router.get('/rounds/:id/sheet/:teamId/judges', (req, res) => {
+  const round = getRound(idParam(req.params.id));
+  const teamId = idParam(req.params.teamId);
+  const team = q.get("SELECT id, code, name FROM teams WHERE id = ? AND competition = 'hackathon'", teamId);
+  if (!team) fail(404, 'That team doesn’t exist.');
+  const judges = q.all(
+    `SELECT j.id, j.display_name, j.username FROM judge_assignments ja JOIN judges j ON j.id = ja.judge_id
+      WHERE ja.round_id = ? AND ja.team_id = ? ORDER BY j.username`,
+    round.id,
+    teamId
+  );
+  res.json({
+    round,
+    team,
+    judges: judges.map((j) => ({ ...results.judgeRow(j.id, round.id, teamId), judge_id: j.id, judge_name: j.display_name, judge_username: j.username })),
+  });
+});
+
 router.put('/rounds/:id/sheet/:teamId', (req, res) => {
   const round = getRound(idParam(req.params.id));
   const teamId = idParam(req.params.teamId);
-  const team = q.get('SELECT id, name FROM teams WHERE id = ?', teamId);
+  const team = q.get("SELECT id, name FROM teams WHERE id = ? AND competition = 'hackathon'", teamId);
   if (!team) fail(404, 'That team doesn’t exist.');
 
   const scores = req.body.scores && typeof req.body.scores === 'object' ? req.body.scores : {};
@@ -139,10 +171,10 @@ router.put('/rounds/:id/sheet/:teamId', (req, res) => {
   });
 
   const row = results.roundSheet(round.id).rows.find((r) => r.team_id === teamId);
-  events.emit('sheet', { round_id: round.id, team_id: teamId, by: req.user.name, row }, 'admins');
-  if (round.published) events.emit('results', { round: round.number, kind: 'updated' }, { teamId });
+  events.emit('sheet', { round_id: round.id, team_id: teamId, by: req.user.name, row }, 'admins:hackathon');
+  if (round.published) events.emit('results', { round: round.number, kind: 'updated' }, `team:${teamId}`);
   // Status changes in earlier rounds change who is eligible later on.
-  if (req.body.status !== undefined && req.body.status !== existing.status) events.emit('rounds', {}, 'admins');
+  if (req.body.status !== undefined && req.body.status !== existing.status) events.emit('rounds', {}, 'admins:hackathon');
   res.json({ row });
 });
 
@@ -174,8 +206,8 @@ router.post('/rounds/:id/auto-select', (req, res) => {
       );
     }
   });
-  events.emit('rounds', {}, 'admins');
-  if (round.published) events.emit('results', { round: round.number, kind: 'updated' }, 'teams');
+  events.emit('rounds', {}, 'admins:hackathon');
+  if (round.published) events.emit('results', { round: round.number, kind: 'updated' }, 'teams:hackathon');
   res.json({ selected, eliminated: eligible.length - selected, ties: selected - Math.min(top, eligible.length) });
 });
 
@@ -195,15 +227,15 @@ router.post('/rounds/:id/publish', (req, res) => {
       ? `Results for Round ${round.number} (${round.name}) have been published. Open your scorecard to see whether your team is selected for the next round, along with your scores and the judges’ notes.`
       : `Scores for Round ${round.number} (${round.name}) are published. Open your scorecard for your scores and the judges’ notes.`;
     const { id } = q.run(
-      "INSERT INTO announcements (title, body, priority, audience, author, created_at) VALUES (?, ?, 'important', 'all', ?, ?)",
+      "INSERT INTO announcements (title, body, priority, audience, competition, author, created_at) VALUES (?, ?, 'important', 'all', 'hackathon', ?, ?)",
       title,
       body,
       req.user.name,
       now()
     );
-    events.emit('announcement', { id, title, priority: 'important' }, 'all');
+    events.emit('announcement', { id, title, priority: 'important' }, 'comp:hackathon');
   }
-  events.emit('results', { round: round.number, kind: published ? 'published' : 'unpublished' }, 'all');
+  events.emit('results', { round: round.number, kind: published ? 'published' : 'unpublished' }, 'comp:hackathon');
   res.json({ round: getRound(round.id) });
 });
 

@@ -35,13 +35,25 @@ app.use('/api', auth.csrfGuard, (req, res, next) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/public', require('./routes/public'));
 app.use('/api/team', auth.requireRole('team'), require('./routes/team'));
+app.use('/api/judge', auth.requireRole('judge'), require('./routes/judge'));
+// Organiser routes. Some areas only exist in one competition.
+const HACKATHON_ONLY = /^\/(rounds|criteria|leaderboard|judges)(\/|$)/;
+const IDEATHON_ONLY = /^\/(submissions|results)(\/|$)/;
+const competitionGuard = (req, res, next) => {
+  if (HACKATHON_ONLY.test(req.path)) return auth.requireHackathon(req, res, next);
+  if (IDEATHON_ONLY.test(req.path)) return auth.requireIdeathon(req, res, next);
+  next();
+};
 app.use(
   '/api/admin',
   auth.requireRole('admin'),
+  competitionGuard,
   require('./routes/admin-teams'),
-  require('./routes/admin-rounds'),
   require('./routes/admin-content'),
-  require('./routes/admin-system')
+  require('./routes/admin-system'),
+  require('./routes/admin-rounds'),
+  require('./routes/admin-judges'),
+  require('./routes/admin-ideathon')
 );
 app.get('/api/events', auth.requireAuth, events.handler);
 app.get('/api/health', (req, res) => res.json({ ok: true }));
@@ -50,11 +62,12 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Not found.' }));
 // ---- pages ---------------------------------------------------------------------------------
 const page = (name) => path.join(config.PUBLIC_DIR, name);
 const noCache = (res) => res.setHeader('Cache-Control', 'no-cache');
+const HOME_FOR = { admin: '/admin', team: '/team', judge: '/judge' };
 
 // Pages link to each other with relative *.html URLs (so the same files also
 // work on static hosting), so serve both forms.
 app.get(['/', '/index.html'], (req, res) => {
-  if (req.user && !req.query.expired && !req.query.signedout) return res.redirect(req.user.role === 'admin' ? '/admin' : '/team');
+  if (req.user && !req.query.expired && !req.query.signedout) return res.redirect(HOME_FOR[req.user.role]);
   noCache(res);
   res.sendFile(page('index.html'));
 });
@@ -67,6 +80,11 @@ app.get(['/admin', '/admin.html'], (req, res) => {
   if (!req.user || req.user.role !== 'admin') return res.redirect('/');
   noCache(res);
   res.sendFile(page('admin.html'));
+});
+app.get(['/judge', '/judge.html'], (req, res) => {
+  if (!req.user || req.user.role !== 'judge') return res.redirect('/');
+  noCache(res);
+  res.sendFile(page('judge.html'));
 });
 
 app.use('/fonts', express.static(path.join(config.PUBLIC_DIR, 'fonts'), { maxAge: '30d', immutable: true }));
@@ -90,17 +108,18 @@ async function ensureAdmins() {
     if (q.get('SELECT 1 FROM admins WHERE username = ?', a.username)) continue;
     const password = a.password || crypto.randomBytes(9).toString('base64url');
     q.run(
-      'INSERT INTO admins (username, display_name, password_hash) VALUES (?, ?, ?)',
+      'INSERT INTO admins (username, display_name, password_hash, competition) VALUES (?, ?, ?, ?)',
       a.username,
       a.name,
-      await auth.hashPassword(password)
+      await auth.hashPassword(password),
+      a.competition
     );
-    created.push({ username: a.username, password, fromEnv: !!a.password });
+    created.push({ username: a.username, password, fromEnv: !!a.password, competition: a.competition });
   }
   if (created.length) {
     console.log('\n  Organiser accounts created:');
     for (const c of created) {
-      console.log(`    ${c.username.padEnd(12)} ${c.fromEnv ? '(password from .env)' : c.password}`);
+      console.log(`    ${c.competition.padEnd(10)} ${c.username.padEnd(12)} ${c.fromEnv ? '(password from .env)' : c.password}`);
     }
     console.log('  Save these now. Change them after signing in (Settings → Change my password).\n');
   }
@@ -108,6 +127,6 @@ async function ensureAdmins() {
 
 ensureAdmins().then(() => {
   app.listen(config.PORT, config.HOST, () => {
-    console.log(`  Genesis Hackathon portal running on http://localhost:${config.PORT}`);
+    console.log(`  Genesis portal (Hackathon + Ideathon) running on http://localhost:${config.PORT}`);
   });
 });

@@ -54,6 +54,17 @@ export function phaseText(ph = phase()) {
   }
 }
 
+/** One-line status for any start/end pair (used for the sign-in cards). */
+export function statusLine(startIso, endIso) {
+  const start = startIso ? Date.parse(startIso) : null;
+  const end = endIso ? Date.parse(endIso) : null;
+  const now = clock.now();
+  if (!start || !end || end <= start) return { kind: 'unset', text: 'Dates to be announced' };
+  if (now < start) return { kind: 'before', text: `Starts in ${fmtDuration(start - now)}` };
+  if (now >= end) return { kind: 'after', text: 'Finished' };
+  return { kind: 'live', text: `Live · ${fmtDuration(end - now)} left` };
+}
+
 export function eventRangeText() {
   if (!state.start || !state.end) return '';
   const s = new Date(state.start).toISOString();

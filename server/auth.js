@@ -137,11 +137,16 @@ function loadSession(req, res, next) {
     return next();
   }
   if (s.role === 'admin') {
-    const a = q.get('SELECT id, username, display_name FROM admins WHERE id = ?', s.user_id);
-    if (a) req.user = { role: 'admin', id: a.id, username: a.username, name: a.display_name };
+    const a = q.get('SELECT id, username, display_name, competition FROM admins WHERE id = ?', s.user_id);
+    if (a) req.user = { role: 'admin', id: a.id, username: a.username, name: a.display_name, competition: a.competition };
+  } else if (s.role === 'judge') {
+    const j = q.get('SELECT id, username, display_name, active FROM judges WHERE id = ?', s.user_id);
+    if (j && j.active) req.user = { role: 'judge', id: j.id, username: j.username, name: j.display_name, competition: 'hackathon' };
   } else {
-    const t = q.get('SELECT id, code, name, leader_name, active FROM teams WHERE id = ?', s.user_id);
-    if (t && t.active) req.user = { role: 'team', id: t.id, username: t.code, name: t.name, leader: t.leader_name };
+    const t = q.get('SELECT id, code, name, leader_name, active, competition FROM teams WHERE id = ?', s.user_id);
+    if (t && t.active) {
+      req.user = { role: 'team', id: t.id, username: t.code, name: t.name, leader: t.leader_name, competition: t.competition };
+    }
   }
   if (!req.user) {
     q.run('DELETE FROM sessions WHERE token_hash = ?', hash);
@@ -178,7 +183,21 @@ const requireAuth = (req, res, next) => {
   next();
 };
 
+const requireHackathon = (req, res, next) => {
+  if (req.user.competition !== 'hackathon') {
+    return res.status(403).json({ error: 'Rounds, scoring and judges are only part of the Hackathon.' });
+  }
+  next();
+};
+
+const requireIdeathon = (req, res, next) => {
+  if (req.user.competition !== 'ideathon') return res.status(403).json({ error: 'This is only part of the Ideathon.' });
+  next();
+};
+
 module.exports = {
+  requireHackathon,
+  requireIdeathon,
   hashPassword,
   verifyPassword,
   generatePassword,

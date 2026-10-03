@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#ffffff">
-  <title>Sign in · Genesis Hackathon</title>
+  <title>Sign in · Genesis</title>
   <link rel="icon" href="img/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <link rel="preload" href="fonts/big-shoulders-display-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -17,12 +17,12 @@
       <div class="lockup">
         <img class="hero-logo" src="img/logo.png" alt="Genesis logo" width="352" height="568">
         <div>
-          <h1 class="wordmark" id="wordmark"><span>Genesis</span><span>Hackathon</span></h1>
-          <p class="signin-tagline" id="tagline">24 hours to build what comes next.</p>
+          <h1 class="wordmark" id="wordmark"><span>Genesis</span><span>Hackathon · Ideathon</span></h1>
+          <p class="signin-tagline" id="tagline">Two 24-hour competitions, running side by side.</p>
         </div>
       </div>
 
-      <div class="stack">
+      <div class="stack" id="hero-details" hidden>
         <div class="horizon" id="horizon" aria-label="Event progress">
           <div class="horizon-top">
             <span class="muted" data-h-label>Event clock</span>
@@ -36,16 +36,47 @@
     </section>
 
     <section class="signin-panel">
-      <form class="card signin-card" id="login-form" novalidate>
+      <!-- Step 1: choose the competition -->
+      <div class="card signin-card chooser" id="chooser">
+        <div class="stack-sm">
+          <h1>Welcome</h1>
+          <p class="muted small">Which competition are you part of?</p>
+        </div>
+        <div class="comp-options">
+          <button type="button" class="comp-option" data-comp="hackathon">
+            <span class="comp-icon" data-icon="code"></span>
+            <span class="comp-text">
+              <strong>Hackathon</strong>
+              <small>Build a working product in 24 hours, judged over 4 rounds.</small>
+              <span class="comp-clock" data-clock="hackathon"></span>
+            </span>
+            <span class="comp-go" data-icon="arrow"></span>
+          </button>
+          <button type="button" class="comp-option" data-comp="ideathon">
+            <span class="comp-icon" data-icon="bulb"></span>
+            <span class="comp-text">
+              <strong>Ideathon</strong>
+              <small>Shape and pitch an idea worth building, over 24 hours.</small>
+              <span class="comp-clock" data-clock="ideathon"></span>
+            </span>
+            <span class="comp-go" data-icon="arrow"></span>
+          </button>
+        </div>
+        <p class="signin-foot">Team leaders, judges and organisers all start here.</p>
+      </div>
+
+      <!-- Step 2: sign in -->
+      <form class="card signin-card" id="login-form" novalidate hidden>
+        <div class="row-between">
+          <button type="button" class="btn btn-ghost btn-sm back-btn" id="back"><span data-icon="back"></span>Change</button>
+          <span class="chip chip-plain comp-chip" id="comp-chip">Hackathon</span>
+        </div>
         <div class="stack-sm">
           <h1>Sign in</h1>
-          <p class="muted small">Use the login details the organisers gave you.</p>
+          <p class="muted small" id="login-sub">Use the login details the organisers gave you.</p>
         </div>
 
-        <div class="seg" role="group" aria-label="Sign in as">
-          <button type="button" data-role="team" aria-pressed="true">Team leader</button>
-          <button type="button" data-role="admin" aria-pressed="false">Organiser</button>
-        </div>
+        <div class="seg" role="group" aria-label="Sign in as" id="roles"></div>
 
         <label class="field">
           <span id="user-label">Team ID</span>

@@ -1,33 +1,118 @@
-import { $, $$, api, clock, html, setHTML, icon, STATIC, hasSession } from './core.js';
-import { setEventTimes, mountHorizon, eventRangeText } from './dial.js';
+// Sign-in: choose Hackathon or Ideathon first, then how you're signing in.
+import { $, $$, api, clock, html, setHTML, icon, STATIC, hasSession, COMP_LABEL } from './core.js';
+import { setEventTimes, mountHorizon, eventRangeText, statusLine } from './dial.js';
 
 const form = $('#login-form');
+const chooser = $('#chooser');
 const errorBox = $('#login-error');
 const username = $('#username');
 const password = $('#password');
+const HOME = { admin: 'admin.html', team: 'team.html', judge: 'judge.html' };
+
+const ROLES = {
+  hackathon: [['team', 'Team leader'], ['judge', 'Judge'], ['admin', 'Organiser']],
+  ideathon: [['team', 'Team leader'], ['admin', 'Organiser']],
+};
+const FIELDS = {
+  team: { label: 'Team ID', placeholder: { hackathon: 'e.g. GEN014', ideathon: 'e.g. IDE014' }, caps: true, foot: 'Forgot your password? An organiser can reset it for you.' },
+  judge: { label: 'Judge ID', placeholder: { hackathon: 'e.g. JDG001' }, caps: true, foot: 'Your judge ID and password come from the organisers.' },
+  admin: { label: 'Username', placeholder: { hackathon: 'e.g. admin1', ideathon: 'e.g. ideaadmin1' }, caps: false, foot: 'Organiser accounts are set up by the event team.' },
+};
+const FORMAT = { hackathon: '4 rounds · 3 with eliminations', ideathon: '24 hours · one idea · no rounds' };
+
+let info = null;
+let competition = null;
 let role = 'team';
 
+$$('[data-icon]').forEach((el) => setHTML(el, icon(el.dataset.icon)));
+
+const remember = (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } };
+const recall = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 
 function setRole(next) {
-  role = next;
+  role = ROLES[competition].some(([r]) => r === next) ? next : 'team';
   for (const b of $$('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === role));
-  $('#user-label').textContent = role === 'team' ? 'Team ID' : 'Username';
-  username.placeholder = role === 'team' ? 'e.g. GEN014' : 'e.g. admin1';
-  username.setAttribute('autocapitalize', role === 'team' ? 'characters' : 'none');
-  $('#login-foot').textContent =
-    role === 'team'
-      ? 'Forgot your password? An organiser can reset it for you.'
-      : 'Organiser accounts are set up on the server. See the README to reset one.';
+  const f = FIELDS[role];
+  $('#user-label').textContent = f.label;
+  username.placeholder = f.placeholder[competition] || '';
+  username.setAttribute('autocapitalize', f.caps ? 'characters' : 'none');
+  $('#login-foot').textContent = f.foot;
   errorBox.textContent = '';
-  try { localStorage.setItem('gh-role', role); } catch { /* storage unavailable */ }
+  remember('gh-role', role);
 }
 
-for (const b of $$('[data-role]')) b.addEventListener('click', () => setRole(b.dataset.role));
-try {
-  const saved = localStorage.getItem('gh-role');
-  if (saved === 'admin' || saved === 'team') setRole(saved);
-} catch { /* storage unavailable */ }
+function choose(comp, { focus = true } = {}) {
+  competition = comp;
+  remember('gh-competition', comp);
+  if (location.hash !== `#${comp}`) history.replaceState(null, '', `#${comp}`);
+  chooser.hidden = true;
+  form.hidden = false;
+  $('#comp-chip').textContent = COMP_LABEL[comp];
+  $('#comp-chip').dataset.comp = comp;
+  setHTML(
+    $('#roles'),
+    ROLES[comp].map(([r, label]) => html`<button type="button" data-role="${r}" aria-pressed="false">${label}</button>`)
+  );
+  $$('[data-role]').forEach((b) => b.addEventListener('click', () => setRole(b.dataset.role)));
+  setRole(recall('gh-role') || 'team');
+  renderHero();
+  if (focus) username.focus();
+}
 
+function showChooser() {
+  competition = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  form.hidden = true;
+  chooser.hidden = false;
+  errorBox.textContent = '';
+  renderHero();
+  const last = recall('gh-competition');
+  const btn = $(`[data-comp="${last}"]`) || $('[data-comp]');
+  btn.focus();
+}
+
+$$('[data-comp]').forEach((b) => b.addEventListener('click', () => choose(b.dataset.comp)));
+$('#back').addEventListener('click', showChooser);
+
+// Left side: the chosen competition's name, clock and facts.
+function renderHero() {
+  const details = $('#hero-details');
+  if (!competition || !info) {
+    setHTML($('#wordmark'), html`<span>Genesis</span><span>Hackathon · Ideathon</span>`);
+    $('#tagline').textContent = 'Two 24-hour competitions, running side by side.';
+    details.hidden = true;
+    document.title = 'Sign in · Genesis';
+    return;
+  }
+  const c = info.competitions[competition];
+  setHTML($('#wordmark'), html`<span>Genesis</span><span>${COMP_LABEL[competition]}</span>`);
+  $('#tagline').textContent = c.tagline;
+  document.title = `Sign in · ${c.event_name}`;
+  setEventTimes(c);
+  details.hidden = false;
+  if (c.event_start && c.event_end) {
+    const hours = (Date.parse(c.event_end) - Date.parse(c.event_start)) / 3600000;
+    setHTML($('#horizon-scale'), [0, 1, 2, 3, 4].map((k) => html`<span>${Math.round((hours * k) / 4)}h</span>`));
+  }
+  const facts = [];
+  const range = eventRangeText();
+  if (range) facts.push(html`<div><b>When</b>${range}</div>`);
+  if (c.venue) facts.push(html`<div><b>Where</b>${c.venue}</div>`);
+  facts.push(html`<div><b>Format</b>${FORMAT[competition]}</div>`);
+  setHTML($('#facts'), facts);
+}
+
+function tickCards() {
+  if (!info) return;
+  for (const el of $$('[data-clock]')) {
+    const c = info.competitions[el.dataset.clock];
+    const s = statusLine(c.event_start, c.event_end);
+    el.textContent = s.text;
+    el.dataset.kind = s.kind;
+  }
+}
+
+// ---- password visibility ----------------------------------------------------------
 const toggle = $('#pw-toggle');
 const drawToggle = () => {
   const shown = password.type === 'text';
@@ -41,21 +126,20 @@ toggle.addEventListener('click', () => {
 });
 drawToggle();
 
+// ---- messages and existing sessions --------------------------------------------------
 const params = new URLSearchParams(location.search);
 // Static hosting has no server-side redirect: skip sign-in if already signed in.
 if (STATIC && hasSession() && !params.has('expired') && !params.has('signedout')) {
   api('/auth/me')
-    .then(({ user }) => location.replace(user.role === 'admin' ? 'admin.html' : 'team.html'))
+    .then(({ user }) => location.replace(HOME[user.role]))
     .catch(() => { /* not signed in */ });
 }
-if (params.has('expired')) errorBox.textContent = 'Your session ended. Sign in again.';
-if (params.has('signedout')) errorBox.textContent = 'You were signed out because your team’s login changed. Sign in with your new password.';
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   errorBox.textContent = '';
   if (!username.value.trim() || !password.value) {
-    errorBox.textContent = role === 'team' ? 'Enter your team ID and password.' : 'Enter your username and password.';
+    errorBox.textContent = `Enter your ${FIELDS[role].label.toLowerCase()} and password.`;
     return;
   }
   const btn = $('#login-btn');
@@ -63,7 +147,7 @@ form.addEventListener('submit', async (e) => {
   try {
     const res = await api('/auth/login', {
       method: 'POST',
-      body: { role, username: username.value.trim(), password: password.value },
+      body: { competition, role, username: username.value.trim(), password: password.value },
     });
     location.href = res.redirect;
   } catch (err) {
@@ -73,28 +157,25 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-// Event details + countdown
+// ---- start --------------------------------------------------------------------------------
+const fromUrl = (location.hash.slice(1) || params.get('c') || '').toLowerCase();
+if (fromUrl === 'hackathon' || fromUrl === 'ideathon') choose(fromUrl, { focus: false });
+if (params.has('expired') || params.has('signedout')) {
+  const last = recall('gh-competition');
+  if (!competition && (last === 'hackathon' || last === 'ideathon')) choose(last, { focus: false });
+  errorBox.textContent = params.has('expired')
+    ? 'Your session ended. Sign in again.'
+    : 'You were signed out because your login changed. Sign in with your new password.';
+}
+
 (async () => {
   try {
-    const info = await api('/public/info');
+    info = await api('/public/info');
     clock.sync(info.serverTime);
-    document.title = `Sign in · ${info.event_name}`;
-    const [first, ...rest] = info.event_name.split(/\s+/);
-    setHTML($('#wordmark'), html`<span>${first}</span>${rest.length ? html`<span>${rest.join(' ')}</span>` : ''}`);
-    $('#tagline').textContent = info.tagline;
-    setEventTimes(info);
     mountHorizon($('#horizon'));
-
-    if (info.event_start && info.event_end) {
-      const hours = (Date.parse(info.event_end) - Date.parse(info.event_start)) / 3600000;
-      setHTML($('#horizon-scale'), [0, 1, 2, 3, 4].map((k) => html`<span>${Math.round((hours * k) / 4)}h</span>`));
-    }
-    const facts = [];
-    const range = eventRangeText();
-    if (range) facts.push(html`<div><b>When</b>${range}</div>`);
-    if (info.venue) facts.push(html`<div><b>Where</b>${info.venue}</div>`);
-    facts.push(html`<div><b>Format</b>4 rounds · 3 with eliminations</div>`);
-    setHTML($('#facts'), facts);
+    renderHero();
+    tickCards();
+    setInterval(tickCards, 1000);
   } catch {
     /* sign-in still works without event info */
   }

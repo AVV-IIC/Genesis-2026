@@ -156,18 +156,43 @@ const statusFor = (round, res) =>
 /** Downloads: teams / template / results / backup. */
 export async function download(kind) {
   if (!STATIC) {
-    const url = { teams: '/api/admin/teams/export.csv', template: '/api/admin/teams/template.csv', results: '/api/admin/export/results.csv', backup: '/api/admin/backup' }[kind];
+    const url = {
+      teams: '/api/admin/teams/export.csv',
+      template: '/api/admin/teams/template.csv',
+      results: '/api/admin/export/results.csv',
+      submissions: '/api/admin/export/submissions.csv',
+      backup: '/api/admin/backup',
+    }[kind];
     location.href = url;
     return;
   }
   if (kind === 'template') return saveFile('genesis-teams-template.csv', toCsv(TEMPLATE), 'text/csv');
   if (kind === 'backup') {
     const data = await rpc('api_admin_backup');
-    return saveFile(`genesis-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, JSON.stringify(data, null, 2), 'application/json');
+    return saveFile(`genesis-${data.competition || 'event'}-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, JSON.stringify(data, null, 2), 'application/json');
   }
   const ex = await rpc('api_admin_export');
+  const comp = ex.competition || 'hackathon';
+  if (kind === 'submissions') {
+    const teamsById = new Map(ex.teams.map((t) => [t.id, t]));
+    return saveFile('genesis-ideathon-submissions.csv', toCsv([
+      ['team_id', 'team_name', 'leader_name', 'title', 'problem', 'solution', 'impact', 'deck_url', 'video_url', 'other_url', 'updated_at'],
+      ...ex.submissions.map((s) => {
+        const t = teamsById.get(s.team_id) || {};
+        return [t.code, t.name, t.leader_name, s.title, s.problem, s.solution, s.impact, s.deck_url, s.video_url, s.extra_url, s.updated_at];
+      }),
+    ]), 'text/csv');
+  }
+  if (kind === 'results' && comp === 'ideathon') {
+    const titles = new Map(ex.submissions.map((s) => [s.team_id, s.title]));
+    const sorted = [...ex.teams].sort((a, b) => (a.award === '') - (b.award === '') || a.code.localeCompare(b.code));
+    return saveFile('genesis-ideathon-results.csv', toCsv([
+      ['team_id', 'team_name', 'leader_name', 'track', 'table', 'idea_title', 'award', 'note'],
+      ...sorted.map((t) => [t.code, t.name, t.leader_name, t.track, t.table_no, titles.get(t.id) || '', t.award, t.result_note]),
+    ]), 'text/csv');
+  }
   if (kind === 'teams') {
-    return saveFile('genesis-teams.csv', toCsv([
+    return saveFile(`genesis-${comp}-teams.csv`, toCsv([
       ['team_id', 'team_name', 'leader_name', 'email', 'phone', 'members', 'track', 'table', 'active', 'last_login'],
       ...ex.teams.map((t) => [t.code, t.name, t.leader_name, t.email, t.phone, (t.members || []).join('; '), t.track, t.table_no, t.active ? 'yes' : 'no', t.last_login_at || '']),
     ]), 'text/csv');
@@ -190,16 +215,16 @@ export async function download(kind) {
     cells.push(row.total ?? '', row.eliminated_in ?? '');
     return cells;
   });
-  saveFile('genesis-results.csv', toCsv([header, ...rows]), 'text/csv');
+  saveFile('genesis-hackathon-results.csv', toCsv([header, ...rows]), 'text/csv');
 }
 
 // ---------- REST-style path -> database function ------------------------------------------
 const n = Number;
 const ROUTES = [
   ['POST', /^\/auth\/login$/, async (m, b) => {
-    const res = await rpc('api_login', { p_role: b.role, p_username: b.username, p_password: b.password }, { auth: false });
-    session.set({ token: res.token, role: res.role });
-    return { ok: true, redirect: res.role === 'admin' ? 'admin.html' : 'team.html' };
+    const res = await rpc('api_login', { p_competition: b.competition, p_role: b.role, p_username: b.username, p_password: b.password }, { auth: false });
+    session.set({ token: res.token, role: res.role, competition: res.competition });
+    return { ok: true, role: res.role, competition: res.competition, redirect: { admin: 'admin.html', judge: 'judge.html' }[res.role] || 'team.html' };
   }],
   ['POST', /^\/auth\/logout$/, async () => {
     try { await rpc('api_logout'); } finally { session.clear(); }
@@ -218,6 +243,15 @@ const ROUTES = [
   ['POST', /^\/team\/tickets$/, (m, b) => rpc('api_team_ticket_create', { p_body: b })],
   ['GET', /^\/team\/tickets\/(\d+)$/, (m) => rpc('api_team_ticket', { p_id: n(m[1]) })],
   ['POST', /^\/team\/tickets\/(\d+)\/messages$/, (m, b) => rpc('api_team_ticket_reply', { p_id: n(m[1]), p_body: b })],
+  ['GET', /^\/team\/submission$/, () => rpc('api_team_submission')],
+  ['PUT', /^\/team\/submission$/, (m, b) => rpc('api_team_submission_save', { p_body: b })],
+
+  ['GET', /^\/judge\/overview$/, () => rpc('api_judge_overview')],
+  ['GET', /^\/judge\/rounds\/(\d+)$/, (m) => rpc('api_judge_round', { p_round: n(m[1]) })],
+  ['PUT', /^\/judge\/rounds\/(\d+)\/teams\/(\d+)$/, (m, b) => rpc('api_judge_save', { p_round: n(m[1]), p_team: n(m[2]), p_body: b })],
+  ['GET', /^\/judge\/announcements$/, () => rpc('api_judge_announcements')],
+  ['POST', /^\/judge\/announcements\/seen$/, () => rpc('api_judge_announcements_seen')],
+  ['GET', /^\/judge\/schedule$/, () => rpc('api_judge_schedule')],
 
   ['GET', /^\/admin\/meta$/, () => rpc('api_admin_meta')],
   ['GET', /^\/admin\/dashboard$/, () => rpc('api_admin_dashboard')],
@@ -242,10 +276,24 @@ const ROUTES = [
   ['DELETE', /^\/admin\/criteria\/(\d+)$/, (m) => rpc('api_admin_criterion_delete', { p_id: n(m[1]) })],
   ['GET', /^\/admin\/rounds\/(\d+)\/sheet$/, (m) => rpc('api_admin_sheet', { p_round: n(m[1]) })],
   ['GET', /^\/admin\/rounds\/(\d+)\/sheet\/(\d+)$/, (m) => rpc('api_admin_sheet_row', { p_round: n(m[1]), p_team: n(m[2]) })],
+  ['GET', /^\/admin\/rounds\/(\d+)\/sheet\/(\d+)\/judges$/, (m) => rpc('api_admin_sheet_judges', { p_round: n(m[1]), p_team: n(m[2]) })],
+  ['GET', /^\/admin\/rounds\/(\d+)\/assignments$/, (m) => rpc('api_admin_assignments', { p_round: n(m[1]) })],
+  ['PUT', /^\/admin\/rounds\/(\d+)\/assignments$/, (m, b) => rpc('api_admin_assignments_save', { p_round: n(m[1]), p_body: b })],
   ['PUT', /^\/admin\/rounds\/(\d+)\/sheet\/(\d+)$/, (m, b) => rpc('api_admin_sheet_save', { p_round: n(m[1]), p_team: n(m[2]), p_body: b })],
   ['POST', /^\/admin\/rounds\/(\d+)\/auto-select$/, (m, b) => rpc('api_admin_auto_select', { p_round: n(m[1]), p_body: b })],
   ['POST', /^\/admin\/rounds\/(\d+)\/publish$/, (m, b) => rpc('api_admin_publish', { p_round: n(m[1]), p_body: b })],
   ['GET', /^\/admin\/leaderboard$/, () => rpc('api_admin_leaderboard')],
+
+  ['GET', /^\/admin\/judges$/, () => rpc('api_admin_judges')],
+  ['POST', /^\/admin\/judges$/, (m, b) => rpc('api_admin_judge_create', { p_body: b })],
+  ['PUT', /^\/admin\/judges\/(\d+)$/, (m, b) => rpc('api_admin_judge_update', { p_id: n(m[1]), p_body: b })],
+  ['DELETE', /^\/admin\/judges\/(\d+)$/, (m) => rpc('api_admin_judge_delete', { p_id: n(m[1]) })],
+  ['POST', /^\/admin\/judges\/(\d+)\/password$/, (m) => rpc('api_admin_judge_password', { p_id: n(m[1]) })],
+
+  ['GET', /^\/admin\/submissions$/, () => rpc('api_admin_submissions')],
+  ['GET', /^\/admin\/results$/, () => rpc('api_admin_results')],
+  ['PUT', /^\/admin\/results\/(\d+)$/, (m, b) => rpc('api_admin_result_save', { p_team: n(m[1]), p_body: b })],
+  ['POST', /^\/admin\/results\/publish$/, (m, b) => rpc('api_admin_results_publish', { p_body: b })],
 
   ['GET', /^\/admin\/announcements$/, () => rpc('api_admin_announcements')],
   ['POST', /^\/admin\/announcements$/, (m, b) => rpc('api_admin_announcement_create', { p_body: b })],
@@ -292,13 +340,20 @@ export async function live(handlers, indicators) {
   };
   let me = null;
   try { me = (await rpc('api_me')).user; } catch { /* page handles auth errors */ }
+  // Targets: all | comp:<c> | admins:<c> | teams:<c> | team:<id> | judges | competing
   const matches = (target) => {
     if (!target || target === 'all') return true;
     if (!me) return false;
-    if (target === 'admins') return me.role === 'admin';
-    if (target === 'teams' || target === 'competing') return me.role === 'team';
-    if (target.startsWith('team:')) return me.role === 'team' && Number(target.slice(5)) === Number(me.id);
-    return false;
+    const [kind, value] = String(target).split(':');
+    switch (kind) {
+      case 'comp': return me.competition === value;
+      case 'admins': return me.role === 'admin' && me.competition === value;
+      case 'teams': return me.role === 'team' && me.competition === value;
+      case 'team': return me.role === 'team' && Number(value) === Number(me.id);
+      case 'judges': return me.role === 'judge';
+      case 'competing': return me.role === 'team' && me.competition === 'hackathon';
+      default: return false;
+    }
   };
 
   let connected = false;

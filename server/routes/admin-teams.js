@@ -23,6 +23,9 @@ function shapeTeam(t) {
     table_no: t.table_no,
     notes: t.notes,
     active: !!t.active,
+    competition: t.competition,
+    award: t.award,
+    result_note: t.result_note,
     last_login_at: t.last_login_at,
     created_at: t.created_at,
   };
@@ -41,8 +44,9 @@ function readTeamFields(body) {
   };
 }
 
-function nextCodes(count, taken = new Set()) {
-  const prefix = (getSettings().team_code_prefix || 'GEN').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'GEN';
+function nextCodes(comp, count, taken = new Set()) {
+  const fallback = comp === 'ideathon' ? 'IDE' : 'GEN';
+  const prefix = (getSettings(comp).team_code_prefix || fallback).replace(/[^A-Za-z0-9]/g, '').toUpperCase() || fallback;
   const re = new RegExp(`^${prefix}(\\d+)$`, 'i');
   let max = 0;
   for (const { code } of q.all('SELECT code FROM teams')) {
@@ -62,6 +66,13 @@ function nextCodes(count, taken = new Set()) {
   return out;
 }
 
+// The team must belong to the signed-in organiser's competition.
+function ownTeam(req, id) {
+  const t = q.get('SELECT * FROM teams WHERE id = ? AND competition = ?', id, req.user.competition);
+  if (!t) fail(404, 'That team doesn’t exist.');
+  return t;
+}
+
 function checkPassword(pw) {
   if (pw && pw.length < 6) fail(400, 'Password must be at least 6 characters.');
   return pw;
@@ -73,12 +84,15 @@ router.get('/teams', (req, res) => {
   const tickets = new Map(
     q.all("SELECT team_id, COUNT(*) AS n FROM tickets WHERE status <> 'resolved' GROUP BY team_id").map((r) => [r.team_id, r.n])
   );
-  const teams = q.all('SELECT * FROM teams ORDER BY code').map((t) => ({
+  const comp = req.user.competition;
+  const submitted = new Set(q.all('SELECT team_id FROM submissions').map((r) => r.team_id));
+  const teams = q.all('SELECT * FROM teams WHERE competition = ? ORDER BY code', comp).map((t) => ({
     ...shapeTeam(t),
-    eliminated_in: results.eliminatedIn(t.id, rounds, resultMap, { publishedOnly: false }),
+    eliminated_in: comp === 'hackathon' ? results.eliminatedIn(t.id, rounds, resultMap, { publishedOnly: false }) : null,
+    has_submission: submitted.has(t.id),
     open_tickets: tickets.get(t.id) || 0,
   }));
-  res.json({ teams, next_code: nextCodes(1)[0] });
+  res.json({ competition: comp, teams, next_code: nextCodes(comp, 1)[0] });
 });
 
 router.post('/teams', async (req, res) => {
@@ -86,13 +100,13 @@ router.post('/teams', async (req, res) => {
   let code = str(req.body.code, { label: 'Team ID', max: 32 }).toUpperCase();
   if (code && !CODE_RE.test(code)) fail(400, 'Team ID can only use letters, numbers, - and _ (2–32 characters).');
   if (code && q.get('SELECT 1 FROM teams WHERE code = ?', code)) fail(409, `Team ID ${code} is already taken.`);
-  if (!code) code = nextCodes(1)[0];
+  if (!code) code = nextCodes(req.user.competition, 1)[0];
   const password = checkPassword(str(req.body.password, { label: 'Password', max: 100, trim: false })) || auth.generatePassword();
 
   const hash = await auth.hashPassword(password);
   const { id } = q.run(
-    `INSERT INTO teams (code, name, leader_name, email, phone, members, track, table_no, notes, password_hash, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO teams (code, name, leader_name, email, phone, members, track, table_no, notes, password_hash, competition, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     code,
     fields.name,
     fields.leader_name,
@@ -103,16 +117,16 @@ router.post('/teams', async (req, res) => {
     fields.table_no,
     fields.notes,
     hash,
+    req.user.competition,
     now()
   );
-  events.emit('teams', {}, 'admins');
+  events.emit('teams', {}, `admins:${req.user.competition}`);
   res.json({ team: shapeTeam(q.get('SELECT * FROM teams WHERE id = ?', id)), password });
 });
 
 router.put('/teams/:id', (req, res) => {
   const id = idParam(req.params.id);
-  const existing = q.get('SELECT * FROM teams WHERE id = ?', id);
-  if (!existing) fail(404, 'That team doesn’t exist.');
+  const existing = ownTeam(req, id);
   const fields = readTeamFields(req.body);
   let code = str(req.body.code, { label: 'Team ID', max: 32, required: true }).toUpperCase();
   if (!CODE_RE.test(code)) fail(400, 'Team ID can only use letters, numbers, - and _ (2–32 characters).');
@@ -138,28 +152,27 @@ router.put('/teams/:id', (req, res) => {
     auth.destroyUserSessions('team', id);
     events.kickTeam(id);
   }
-  events.emit('teams', {}, 'admins');
-  events.emit('profile', {}, { teamId: id });
+  events.emit('teams', {}, `admins:${req.user.competition}`);
+  events.emit('profile', {}, `team:${id}`);
   res.json({ team: shapeTeam(q.get('SELECT * FROM teams WHERE id = ?', id)) });
 });
 
 router.delete('/teams/:id', (req, res) => {
   const id = idParam(req.params.id);
-  const t = q.get('SELECT id FROM teams WHERE id = ?', id);
-  if (!t) fail(404, 'That team doesn’t exist.');
+  ownTeam(req, id);
   tx(() => {
     q.run("DELETE FROM sessions WHERE role = 'team' AND user_id = ?", id);
     q.run('DELETE FROM teams WHERE id = ?', id);
   });
   events.kickTeam(id);
-  events.emit('teams', {}, 'admins');
+  events.emit('teams', {}, `admins:${req.user.competition}`);
   res.json({ ok: true });
 });
 
 router.post('/teams/:id/password', async (req, res) => {
   const id = idParam(req.params.id);
-  const t = q.get('SELECT id, code, name, leader_name, table_no FROM teams WHERE id = ?', id);
-  if (!t) fail(404, 'That team doesn’t exist.');
+  const { code, name, leader_name, table_no } = ownTeam(req, id);
+  const t = { id, code, name, leader_name, table_no };
   const password = checkPassword(str(req.body.password, { label: 'Password', max: 100, trim: false })) || auth.generatePassword();
   q.run('UPDATE teams SET password_hash = ? WHERE id = ?', await auth.hashPassword(password), id);
   auth.destroyUserSessions('team', id);
@@ -171,8 +184,8 @@ router.post('/teams/:id/password', async (req, res) => {
 router.post('/teams/passwords', async (req, res) => {
   const ids = Array.isArray(req.body.ids) ? req.body.ids.map(Number).filter(Number.isInteger) : [];
   const teams = ids.length
-    ? q.all(`SELECT id, code, name, leader_name, table_no FROM teams WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY code`, ...ids)
-    : q.all('SELECT id, code, name, leader_name, table_no FROM teams WHERE active = 1 ORDER BY code');
+    ? q.all(`SELECT id, code, name, leader_name, table_no FROM teams WHERE competition = ? AND id IN (${ids.map(() => '?').join(',')}) ORDER BY code`, req.user.competition, ...ids)
+    : q.all('SELECT id, code, name, leader_name, table_no FROM teams WHERE active = 1 AND competition = ? ORDER BY code', req.user.competition);
   if (!teams.length) fail(400, 'No teams to generate passwords for.');
   const creds = [];
   for (const t of teams) {
@@ -256,7 +269,7 @@ router.post('/teams/import', async (req, res) => {
 
   if (errors.length) return res.status(400).json({ error: `Fix ${errors.length} problem${errors.length === 1 ? '' : 's'} in the CSV and try again. Nothing was imported.`, errors });
 
-  const autoCodes = nextCodes(parsed.filter((p) => !p.code).length, new Set(fileCodes));
+  const autoCodes = nextCodes(req.user.competition, parsed.filter((p) => !p.code).length, new Set(fileCodes));
   for (const p of parsed) {
     if (!p.code) p.code = autoCodes.shift();
     if (!p.password) p.password = auth.generatePassword();
@@ -266,8 +279,8 @@ router.post('/teams/import', async (req, res) => {
   const created = tx(() =>
     parsed.map((p) => {
       const { id } = q.run(
-        `INSERT INTO teams (code, name, leader_name, email, phone, members, track, table_no, password_hash, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO teams (code, name, leader_name, email, phone, members, track, table_no, password_hash, competition, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         p.code,
         p.name,
         p.leader_name,
@@ -277,12 +290,13 @@ router.post('/teams/import', async (req, res) => {
         p.track,
         p.table_no,
         p.hash,
+        req.user.competition,
         now()
       );
       return { id, code: p.code, name: p.name, leader_name: p.leader_name, table_no: p.table_no, password: p.password };
     })
   );
-  events.emit('teams', {}, 'admins');
+  events.emit('teams', {}, `admins:${req.user.competition}`);
   res.json({ credentials: created });
 });
 
@@ -295,8 +309,8 @@ router.get('/teams/template.csv', (req, res) => {
 });
 
 router.get('/teams/export.csv', (req, res) => {
-  const teams = q.all('SELECT * FROM teams ORDER BY code');
-  sendCsv(res, 'genesis-teams.csv', [
+  const teams = q.all('SELECT * FROM teams WHERE competition = ? ORDER BY code', req.user.competition);
+  sendCsv(res, `genesis-${req.user.competition}-teams.csv`, [
     ['team_id', 'team_name', 'leader_name', 'email', 'phone', 'members', 'track', 'table', 'active', 'last_login'],
     ...teams.map((t) => [
       t.code,

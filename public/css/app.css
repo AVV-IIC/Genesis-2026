@@ -719,6 +719,36 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .pw-wrap .icon-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
 .signin-foot { font-size: 13px; color: var(--faint); text-align: center; }
 
+/* competition chooser */
+.comp-options { display: grid; gap: 12px; }
+.comp-option {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center;
+  width: 100%; text-align: left; cursor: pointer; color: inherit;
+  padding: 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface);
+  box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.comp-option::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--comp-c, var(--teal)); }
+.comp-option[data-comp='ideathon'] { --comp-c: #6fd18f; --comp-ink: #16794a; --comp-bg: #e9f8ef; }
+.comp-option[data-comp='hackathon'] { --comp-c: #0070a0; --comp-ink: #005e87; --comp-bg: #e6f2f9; }
+.comp-option:hover { border-color: var(--comp-c); box-shadow: var(--shadow); transform: translateY(-1px); }
+.comp-option:focus-visible { outline: 2px solid var(--comp-c); outline-offset: 2px; }
+.comp-icon { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: var(--comp-bg); color: var(--comp-ink); }
+.comp-icon svg { width: 24px; height: 24px; }
+.comp-text { display: grid; gap: 3px; }
+.comp-text strong { font: 800 24px/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.03em; color: var(--brand-ink); }
+.comp-text small { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.comp-clock { font: 500 11.5px var(--f-mono); letter-spacing: -0.02em; color: var(--faint); margin-top: 2px; }
+.comp-clock[data-kind='live'] { color: var(--live); }
+.comp-clock[data-kind='before'] { color: var(--comp-ink); }
+.comp-go { color: var(--faint); }
+.comp-go svg { width: 20px; height: 20px; }
+.comp-option:hover .comp-go { color: var(--comp-c); }
+.back-btn { padding-left: 6px; }
+.back-btn svg, .back-btn span svg { width: 16px; height: 16px; }
+.comp-chip { --c: var(--info); }
+.comp-chip[data-comp='ideathon'] { --c: var(--ok); }
+
 /* ---------- 404 ---------- */
 .lost { min-height: 100dvh; display: grid; place-content: center; justify-items: center; text-align: center; gap: 16px; padding: 24px; }
 .lost img { height: 120px; width: auto; }
