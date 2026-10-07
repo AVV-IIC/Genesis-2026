@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Genesis Ideathon Teams</title>
+  <meta name="description" content="Official team directory for Genesis Ideathon 2026. Find your Team ID, team name, team leader and members. IIC, Amrita Vishwa Vidyapeetham, Coimbatore.">
+  <meta name="theme-color" content="#f2f8f6">
+  <link rel="icon" href="img/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Genesis Ideathon Teams">
+  <meta property="og:description" content="Find your official Team ID for Genesis Ideathon 2026.">
+  <meta property="og:url" content="https://rohith-kumar-ss.github.io/genesis-ideathon-teams/">
+  <meta property="og:image" content="https://rohith-kumar-ss.github.io/genesis-ideathon-teams/img/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="preload" href="fonts/big-shoulders-display-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preconnect" href="https://ogogexuinuynaglkxeeh.supabase.co" crossorigin>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#results">Skip to teams</a>
+
+  <header class="site-header">
+    <div class="stripe" aria-hidden="true"></div>
+    <div class="wrap bar">
+      <a class="brand" href="./" aria-label="Genesis Ideathon Teams, home">
+        <img src="img/logo.png" alt="" width="26" height="42">
+        <span class="brand-text"><strong>Genesis</strong><span>Ideathon 2026</span></span>
+      </a>
+      <p class="org">Institution's Innovation Council &middot; Amrita Vishwa Vidyapeetham, Coimbatore</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">Genesis Ideathon 2026 &middot; Official team list</p>
+          <h1 id="hero-title"><span>Team</span> <span class="grad">Directory</span></h1>
+          <p class="lead">Look up your Team ID and check your team's details. Search by roll number, name, team name or Team ID.</p>
+          <dl class="stats">
+            <div><dt>Teams</dt><dd id="st-teams">&mdash;</dd></div>
+            <div><dt>Participants</dt><dd id="st-people">&mdash;</dd></div>
+            <div><dt>Per team</dt><dd id="st-size">&mdash;</dd></div>
+          </dl>
+          <p class="id-hint"><span>Team ID format</span><code>GEN26-A0H-I<em>###</em></code></p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <img src="img/logo.png" alt="" width="352" height="568">
+        </div>
+      </div>
+    </section>
+
+    <div class="toolbar" role="search">
+      <div class="wrap toolbar-inner">
+        <label class="search" for="q">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span class="sr-only">Search teams</span>
+          <input id="q" type="search" placeholder="Roll no., name, team or ID" autocomplete="off" spellcheck="false" enterkeyhint="search">
+          <kbd aria-hidden="true">/</kbd>
+        </label>
+        <div class="tools">
+          <label class="sort" for="sort">
+            <span>Sort</span>
+            <select id="sort">
+              <option value="id">Team ID</option>
+              <option value="name">Team name, A&ndash;Z</option>
+            </select>
+          </label>
+          <div class="seg" role="group" aria-label="Layout">
+            <button type="button" data-view="cards" aria-pressed="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg>
+              Cards
+            </button>
+            <button type="button" data-view="table" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+              Table
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap meta-row">
+      <p id="count" aria-live="polite">Loading teams&hellip;</p>
+      <p id="updated"></p>
+    </div>
+
+    <section class="wrap results" id="results" tabindex="-1" aria-label="Teams"></section>
+    <noscript><p class="wrap">This directory needs JavaScript to load the team list.</p></noscript>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap foot">
+      <div class="foot-brand">
+        <img src="img/logo.png" alt="" width="22" height="36">
+        <div>
+          <strong>Genesis Ideathon 2026</strong>
+          <span>Institution's Innovation Council (IIC), Amrita Vishwa Vidyapeetham, Coimbatore</span>
+        </div>
+      </div>
+      <p class="foot-note">Official list of registered teams.</p>
+    </div>
+    <div class="stripe" aria-hidden="true"></div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
