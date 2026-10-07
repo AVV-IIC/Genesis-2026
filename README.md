@@ -2,6 +2,8 @@
 
 A web portal for running two 24-hour competitions side by side: a **Hackathon** with 4 evaluation rounds and an **Ideathon** with no rounds.
 
+**Live site:** <https://avv-iic.github.io/Genesis-2026/> (add `#hackathon` or `#ideathon` to skip the competition choice). Every push to `main` rebuilds and republishes it automatically (see *Option E*).
+
 The sign-in page first asks **Hackathon or Ideathon**, then how you're signing in.
 
 | | Hackathon | Ideathon |
@@ -151,6 +153,8 @@ The same website also runs as a static site on **github.io**, with the data in a
    node scripts/build-site.js --url https://YOUR-PROJECT.supabase.co --key YOUR-PUBLISHABLE-KEY --out ../genesis-hackathon-site
    ```
 5. Push that folder to a **public** GitHub repository and turn on **Settings → Pages → Deploy from a branch → main / (root)**. The site appears at `https://<your-username>.github.io/<repo-name>/`. Add `#hackathon` or `#ideathon` to the link to skip the competition choice.
+
+   **Automatic publishing (how AVV-IIC/Genesis-2026 runs):** the workflow in `.github/workflows/website.yml` runs on every push to `main`. It builds the site using the Supabase URL and publishable key saved in `site.config.json`, and puts the result on the `gh-pages` branch. Pages is set to **Deploy from a branch → gh-pages / (root)**. To change the website, edit the source, push to `main`, and it's live a minute later. Database changes still need `supabase/schema.sql` re-run in the SQL Editor *first*.
 
 How it stays secure: the tables live in a private `genesis` schema that the public key can't read. The website can only call the `api_*` functions, and every one of them checks the signed-in user's session, role and competition. Passwords are stored as bcrypt hashes. Live updates use Supabase Realtime broadcasts that contain only "something changed" signals, never scores, comments or ideas. If live updates can't connect, pages refresh themselves every 45 seconds and show "Auto-refresh".
 
