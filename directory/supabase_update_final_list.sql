@@ -1,0 +1,298 @@
+-- Genesis Ideathon 2026: apply the final team list (8 Oct 2026).
+-- Paste this whole file into the Supabase SQL Editor (project ogogexuinuynaglkxeeh) and click Run.
+--
+-- What it does
+--   1. Adds a `status` column: 'final' (170 teams) or 'rejected' (62 teams). The website shows it as a badge and a filter.
+--   2. Writes the members of the 170 final teams from "All Members Final List.xlsx": 24 member swaps in 22 teams,
+--      corrected roll numbers for I028, I034, I107, I163 and I177, and tidier formatting (capitals, dots, spaces)
+--      in 15 more teams' roll numbers or names. Team I206 is renamed "MASC". 42 final teams change in all.
+--   3. Marks the other 62 teams as rejected. Their members stay as registered, except:
+--      I167 is renamed "Nexora", and in GRIX (I044) Harsh J Dugar replaces Sasikiran Reddy Marla (they swapped teams with I100).
+--   4. Checks the totals (170 final + 62 rejected = 232). If anything is off, nothing is saved.
+--
+-- Safe to run more than once: rows that already match are left untouched.
+-- Written for the rows as they were on 8 Oct 2026. It overwrites the 170 final teams' names and members,
+-- so redo any Table Editor edits to those teams made after that.
+
+begin;
+
+alter table public.ideathon_teams add column if not exists status text not null default 'final';
+alter table public.ideathon_teams drop constraint if exists ideathon_teams_status_check;
+alter table public.ideathon_teams add constraint ideathon_teams_status_check check (status in ('final', 'rejected'));
+
+-- 1. Final teams: names, members and roll numbers from the final list
+update public.ideathon_teams t set
+  status = 'final',
+  team_name = s.team_name,
+  tl_name = s.tl_name, tl_roll = s.tl_roll,
+  m1_name = s.m1_name, m1_roll = s.m1_roll,
+  m2_name = s.m2_name, m2_roll = s.m2_roll,
+  m3_name = s.m3_name, m3_roll = s.m3_roll
+from json_to_recordset($genesis$[
+{"team_id": "GEN26-A0H-I002", "team_name": "THE DEBUGGERS", "tl_name": "Saai Rithik", "tl_roll": "CB.SC.U4CSE26748", "m1_name": "Sai Saran B", "m1_roll": "CB.SC.U4CSE26751", "m2_name": "Radha Krishnan", "m2_roll": "CB.SC.U4CSE26745", "m3_name": "Muthu Vel Rajan", "m3_roll": "CB.SC.U4CSE26771"},
+{"team_id": "GEN26-A0H-I003", "team_name": "Anthara", "tl_name": "Vinayak S", "tl_roll": "CB.SC.U4CSE26563", "m1_name": "Maheema K", "m1_roll": "CB.SC.U4CYS26124", "m2_name": "Viswanath Maharam", "m2_roll": "CB.SC.U4CSE26166", "m3_name": "Kaevin P", "m3_roll": "CB.SC.U4CSE26218"},
+{"team_id": "GEN26-A0H-I004", "team_name": "ZENITH", "tl_name": "SARUMATHI R N", "tl_roll": "CB.SC.U4CSE26754", "m1_name": "SABITHA J", "m1_roll": "CB.SC.U4CSE26749", "m2_name": "KAVYA NAGAVARDINI N", "m2_roll": "CB.SC.U4CSE26736", "m3_name": "KRISHNA MANOJ JADHAO", "m3_roll": "CB.SC.U4CSE26728"},
+{"team_id": "GEN26-A0H-I005", "team_name": "Tech Mavericks", "tl_name": "Lakshan S", "tl_roll": "CB.AI.U4QTS25030", "m1_name": "Edwin Sundaraj B", "m1_roll": "CB.AI.U4QTS25020", "m2_name": "Harish Srinivas", "m2_roll": "CB.AI.U4QTS25022", "m3_name": "Thondepu Prasanna Sai Anish", "m3_roll": "CB.AI.U4QTS25045"},
+{"team_id": "GEN26-A0H-I006", "team_name": "Syntax Error", "tl_name": "Sharvesh J B", "tl_roll": "CB.EN.U4CCE26149", "m1_name": "Roahith P", "m1_roll": "CB.EN.U4CCE26144", "m2_name": "Akhilesh Aravind J", "m2_roll": "CB.EN.U4CCE26106", "m3_name": "Gaurav T", "m3_roll": "CB.EN.U4CSC26410"},
+{"team_id": "GEN26-A0H-I007", "team_name": "Ryvex", "tl_name": "Rhaghavi S N", "tl_roll": "CB.PS.I5MAT25014", "m1_name": "Charu Nethra C", "m1_roll": "CB.PS.I5DAS25138", "m2_name": "Sai Durga C", "m2_roll": "CB.PS.I5DAS25129", "m3_name": "Bhavya V", "m3_roll": "CB.EN.U4ELC25158"},
+{"team_id": "GEN26-A0H-I008", "team_name": "Arceus", "tl_name": "Bavan Vijaya Raja M K", "tl_roll": "CB.EN.U4CCE25107", "m1_name": "Pranav Prasad K", "m1_roll": "CB.EN.U4CCE25132", "m2_name": "Dhivyan K", "m2_roll": "CB.EN.U4CCE25113", "m3_name": "Pramit M", "m3_roll": "CB.EN.U4CCE25130"},
+{"team_id": "GEN26-A0H-I010", "team_name": "Vishwamithra", "tl_name": "Amirthamirra P", "tl_roll": "CB.EN.U4ELC25057", "m1_name": "Dheepika Raja", "m1_roll": "CB.EN.U4ELC25007", "m2_name": "Harita J", "m2_roll": "CB.EN.U4ELC25013", "m3_name": "Pooja S", "m3_roll": "CB.EN.U4EEE25033"},
+{"team_id": "GEN26-A0H-I011", "team_name": "Hack orbit", "tl_name": "Kavish Rahav D P", "tl_roll": "CB.AI.U4AID26016", "m1_name": "Jeyanthan S", "m1_roll": "CB.AI.U4AID26057", "m2_name": "Karthikeyan Kannan", "m2_roll": "CB.AI.U4AID26118", "m3_name": "Ratchitha kathiravan vedhavalli", "m3_roll": "CB.AI.U4AID26032"},
+{"team_id": "GEN26-A0H-I014", "team_name": "Data Alchemists", "tl_name": "Prajit Anand", "tl_roll": "CB.PS.I5MAT26011", "m1_name": "Mohit Vaswani", "m1_roll": "CB.PS.I5MAT26010", "m2_name": "Sriram S", "m2_roll": "CB.PS.I5MAT26017", "m3_name": "Tanishq Borah", "m3_roll": "CB.PS.I5MAT26019"},
+{"team_id": "GEN26-A0H-I016", "team_name": "CODEHOLICS", "tl_name": "Purvikka N.", "tl_roll": "CB.SC.U4CSE26442", "m1_name": "Kaviyen R", "m1_roll": "CB.SC.U4CSE26424", "m2_name": "Ashwanth R", "m2_roll": "CB.SC.U4CSE26404", "m3_name": "Akash Parthiban", "m3_roll": "CB.SC.U4CSE26403"},
+{"team_id": "GEN26-A0H-I017", "team_name": "MindMesh", "tl_name": "Trishna Sri S", "tl_roll": "CB.PS.I5DAS26046", "m1_name": "Selvanisha.V", "m1_roll": "CB.PS.I5DAS26135", "m2_name": "Lakshithakumar V M", "m2_roll": "CB.PS.I5DAS26017", "m3_name": "Harshini V B", "m3_roll": "CB.PS.I5DAS26008"},
+{"team_id": "GEN26-A0H-I018", "team_name": "Secret Avengers", "tl_name": "Sree Gugan V S", "tl_roll": "CB.SC.U4CSE26254", "m1_name": "T.Harshil", "m1_roll": "CB.SC.U4CSE26259", "m2_name": "Nithesh", "m2_roll": "CB.SC.U4CSE26261", "m3_name": "Akshay", "m3_roll": "CB.SC.U4CSE26766"},
+{"team_id": "GEN26-A0H-I019", "team_name": "Syntax who?", "tl_name": "Karri Jahnavi", "tl_roll": "CB.SC.U4CYS26022", "m1_name": "Lakshana Sasvitha S.S", "m1_roll": "CB.SC.U4CYS26027", "m2_name": "Kaasini Karthick", "m2_roll": "CB.SC.U4CYS26020", "m3_name": "T S Abhijith", "m3_roll": "CB.SC.U4CYS26059"},
+{"team_id": "GEN26-A0H-I020", "team_name": "INNOVITA", "tl_name": "Kanishka S", "tl_roll": "CB.EN.U4ECE26024", "m1_name": "Krishiva Venkatesh", "m1_roll": "CB.EN.U4ECE26027", "m2_name": "Kishorekumar Leelavinothan", "m2_roll": "CB.SC.U4CSE26727", "m3_name": "Vikas Nair", "m3_roll": "CB.EN.U4ECE26022"},
+{"team_id": "GEN26-A0H-I021", "team_name": "Pulse", "tl_name": "Prajan Kumar S", "tl_roll": "CB.AI.U4AAR26041", "m1_name": "Rathish K", "m1_roll": "CB.AI.U4AAR26044", "m2_name": "Hardik S", "m2_roll": "CB.AI.U4AAR26022", "m3_name": "Lalith Sudharsan M M", "m3_roll": "CB.AI.U4AAR26029"},
+{"team_id": "GEN26-A0H-I022", "team_name": "4 Frames Per Second", "tl_name": "Dhilib S.M", "tl_roll": "CB.EN.U4AEE26009", "m1_name": "SHYAMKRISHNA MAHESH", "m1_roll": "CB.EN.U4AEE26052", "m2_name": "SUDEESH KUMAR", "m2_roll": "CB.EN.U4AEE26054", "m3_name": "Gauri Suresh", "m3_roll": "CB.EN.U4AEE26015"},
+{"team_id": "GEN26-A0H-I023", "team_name": "Actuator Alliance", "tl_name": "Jishnu Prabu K", "tl_roll": "CB.EN.U4ECE26018", "m1_name": "Sharmili Krishnan", "m1_roll": "CB.EN.U4ECE26014", "m2_name": "Gautham V", "m2_roll": "CB.EN.U4ECE26056", "m3_name": "Pediredla Charitesh", "m3_roll": "CB.EN.U4ECE26063"},
+{"team_id": "GEN26-A0H-I024", "team_name": "Nexora", "tl_name": "Kavisri S", "tl_roll": "CB.EN.U4CCE26131", "m1_name": "KAUSHIK P", "m1_roll": "CB.EN.U4CCE26130", "m2_name": "Shruthi Lakshmi V P", "m2_roll": "CB.EN.U4CCE26151", "m3_name": "Gautham Ashokkumar", "m3_roll": "CB.EN.U4CCE26120"},
+{"team_id": "GEN26-A0H-I025", "team_name": "404 Decoders", "tl_name": "Bharanidharan S", "tl_roll": "CB.EN.U4EEE26047", "m1_name": "Tawfiq Farhan S", "m1_roll": "CB.EN.U4EEE26048", "m2_name": "Darshan S", "m2_roll": "CB.EN.U4EEE26049", "m3_name": "Narendran M", "m3_roll": "CB.EN.U4EEE26022"},
+{"team_id": "GEN26-A0H-I026", "team_name": "Team Hustlers", "tl_name": "Pranesh R K", "tl_roll": "CB.EN.U4MEE25030", "m1_name": "Nithishwar M R", "m1_roll": "CB.EN.U4MEE25027", "m2_name": "Pragadeesh N M", "m2_roll": "CB.EN.U4MEE25023", "m3_name": "Gautham S", "m3_roll": "CB.EN.U4MEE25139"},
+{"team_id": "GEN26-A0H-I027", "team_name": "The Glitch Guild", "tl_name": "MUKESHKUMAR R", "tl_roll": "CB.PS.I5DAS25120", "m1_name": "NITISH SARAVANA K", "m1_roll": "CB.PS.I5DAS25139", "m2_name": "Dharneesh D K", "m2_roll": "CB.PS.I5DAS25010", "m3_name": "MEENACHI SUNDARAM .N", "m3_roll": "CB.PS.I5DAS25016"},
+{"team_id": "GEN26-A0H-I028", "team_name": "The Notre Dame", "tl_name": "Urmika Prasanth", "tl_roll": "CB.EN.U4MEE26244", "m1_name": "Vasmath Sai Reddy Bandi", "m1_roll": "CB.EN.U4MEE26206", "m2_name": "T.Pranav", "m2_roll": "CB.EN.U4MEE26242", "m3_name": "Mantra Asthana", "m3_roll": "CB.EN.U4MEE26221"},
+{"team_id": "GEN26-A0H-I031", "team_name": "Fantastic Four", "tl_name": "Jahnavi A Nair", "tl_roll": "CB.EN.U4AEE26021", "m1_name": "Aditi R", "m1_roll": "CB.EN.U4AEE26003", "m2_name": "S Aditya", "m2_roll": "CB.EN.U4AEE26040", "m3_name": "Dushyant Ravichandran", "m3_roll": "CB.EN.U4AEE26010"},
+{"team_id": "GEN26-A0H-I032", "team_name": "Saral Forge", "tl_name": "Jishnu S", "tl_roll": "CB.EN.U4CCE26017", "m1_name": "K B Bharath", "m1_roll": "CB.EN.U4CCE26129", "m2_name": "Sai Abinav S", "m2_roll": "CB.EN.U4CCE26046", "m3_name": "Athul Krishna", "m3_roll": "CB.EN.U4CCE26002"},
+{"team_id": "GEN26-A0H-I033", "team_name": "Root Access", "tl_name": "K SUJAI KARTHICK", "tl_roll": "CB.EN.U4CCE25117", "m1_name": "Janardhanan R", "m1_roll": "CB.EN.U4CCE25116", "m2_name": "Dwaragesh K", "m2_roll": "CB.EN.U4CCE25058", "m3_name": "THARUN SS", "m3_roll": "CB.EN.U4CCE25152"},
+{"team_id": "GEN26-A0H-I034", "team_name": "TECH TITIANS", "tl_name": "OVIYAA S", "tl_roll": "CB.SC.U4CSE26072", "m1_name": "SHIVAMIHIT GOVINDARAJU", "m1_roll": "CB.EN.U4ECE26148", "m2_name": "KAPIL KUMARAN K S", "m2_roll": "CB.EN.U4MEE26117", "m3_name": "MAADESH KUMAAR C", "m3_roll": "CB.SC.U4CSE26633"},
+{"team_id": "GEN26-A0H-I035", "team_name": "Spark Titans", "tl_name": "Raja Raja Shree A", "tl_roll": "CB.EN.U4CCE26065", "m1_name": "Rithvik Kumar", "m1_roll": "CB.EN.U4ECE26140", "m2_name": "Ayesha Siddiqua I", "m2_roll": "CB.SC.U4CSE26013", "m3_name": "Deepak E R", "m3_roll": "CB.SC.U4CSE26611"},
+{"team_id": "GEN26-A0H-I036", "team_name": "Enigma's", "tl_name": "B Abhishek Bharathi", "tl_roll": "CB.AI.U4QTS25009", "m1_name": "Aadithya Ram", "m1_roll": "CB.AI.U4AIM25001", "m2_name": "Aadidev V S", "m2_roll": "CB.AI.U4AAR25003", "m3_name": "Sanjay S M", "m3_roll": "CB.AI.U4QTS25038"},
+{"team_id": "GEN26-A0H-I037", "team_name": "Codevps", "tl_name": "MIRIYALA DHANWINN", "tl_roll": "CB.SC.U4CSE25639", "m1_name": "sai varun challapilla", "m1_roll": "CB.SC.U4CSE25514", "m2_name": "vinay somarouthu", "m2_roll": "CB.SC.U4CSE25556", "m3_name": "ESWAR ADITYA", "m3_roll": "CB.SC.U4CSE25518"},
+{"team_id": "GEN26-A0H-I038", "team_name": "Kairos", "tl_name": "T.R Akshaja Rao", "tl_roll": "CB.EN.U4EEE26040", "m1_name": "Monish D", "m1_roll": "CB.EN.U4EEE26019", "m2_name": "Pradeesh G", "m2_roll": "CB.EN.U4EEE26024", "m3_name": "Srivatsa Kalyan Pattamatta", "m3_roll": "CB.EN.U4EEE26039"},
+{"team_id": "GEN26-A0H-I039", "team_name": "Aurez", "tl_name": "Dakshatha G", "tl_roll": "CB.AC.U4DES25003", "m1_name": "Jinal R", "m1_roll": "CB.AC.U4DES25005", "m2_name": "Pavnassri", "m2_roll": "CB.AC.U4DES25007", "m3_name": "Jamuna Busetty", "m3_roll": "CB.AC.U4DES25004"},
+{"team_id": "GEN26-A0H-I041", "team_name": "Aura", "tl_name": "Ramagiri Rohith Sai", "tl_roll": "CB.SC.U4CYS26042", "m1_name": "Bojja Dinseh Kumar", "m1_roll": "CB.SC.U4CYS26016", "m2_name": "Velumula Harivansh Reddy", "m2_roll": "CB.SC.U4CYS26064", "m3_name": "Vardhineedi Rohith Madhu Krishna", "m3_roll": "CB.SC.U4CYS26062"},
+{"team_id": "GEN26-A0H-I042", "team_name": "IdeaForge", "tl_name": "Kanishk S", "tl_roll": "CB.PS.I5DAS26013", "m1_name": "R.SreeVarshini", "m1_roll": "CB.PS.I5DAS26129", "m2_name": "Shredha V", "m2_roll": "CB.PS.I5DAS26039", "m3_name": "Tarun K S", "m3_roll": "CB.PS.I5DAS26145"},
+{"team_id": "GEN26-A0H-I043", "team_name": "AVISHKAR", "tl_name": "Samanyu S", "tl_roll": "CB.EN.U4AEE26043", "m1_name": "Abhinav Arunachalam I S", "m1_roll": "CB.EN.U4AEE26002", "m2_name": "Janaa Sivakumar", "m2_roll": "CB.EN.U4AEE26022", "m3_name": "Srileka", "m3_roll": "CB.EN.U4AEE26053"},
+{"team_id": "GEN26-A0H-I045", "team_name": "Sneakers", "tl_name": "S. Kaveen", "tl_roll": "CB.SC.U4CSE26045", "m1_name": "Alen jomon", "m1_roll": "CB.SC.U4CSE26006", "m2_name": "Abijith raja S", "m2_roll": "CB.SC.U4CSE26003", "m3_name": "Prajesh T M", "m3_roll": "CB.SC.U4CSE26543"},
+{"team_id": "GEN26-A0H-I046", "team_name": "Closed Loop", "tl_name": "K Lokesh", "tl_roll": "CB.EN.U4AEE25022", "m1_name": "Harish B", "m1_roll": "CB.EN.U4AEE25018", "m2_name": "Gurusharvesh Balasubramanian", "m2_roll": "CB.EN.U4AEE25017", "m3_name": "Rahul Kumar G", "m3_roll": "CB.EN.U4AEE25038"},
+{"team_id": "GEN26-A0H-I047", "team_name": "Byte Force", "tl_name": "Kaushika R", "tl_roll": "CB.SC.U4CSE25217", "m1_name": "Navya Ganesh Kavitha", "m1_roll": "CB.EN.U4CCE25032", "m2_name": "Kavin M K", "m2_roll": "CB.EN.U4CCE25027", "m3_name": "Tharshun N M", "m3_roll": "CB.EN.U4CCE25054"},
+{"team_id": "GEN26-A0H-I048", "team_name": "BRAIN BYTES", "tl_name": "Tharunima", "tl_roll": "CB.EN.U4AEE26060", "m1_name": "Vishwaja S", "m1_roll": "CB.EN.U4AEE26065", "m2_name": "Sanjay krishnan V", "m2_roll": "CB.EN.U4AEE26045", "m3_name": "Jagat R S", "m3_roll": "CB.EN.U4AEE26020"},
+{"team_id": "GEN26-A0H-I049", "team_name": "Inception", "tl_name": "Rajaneesh Venigalla", "tl_roll": "CB.SC.U4CSE25362", "m1_name": "Abhijith Sarma", "m1_roll": "CB.SC.U4CSE25316", "m2_name": "Harish Reddy", "m2_roll": "CB.SC.U4CSE25425", "m3_name": "Raghammudi Veda Vamsi Krishna", "m3_roll": "CB.SC.U4CSE25346"},
+{"team_id": "GEN26-A0H-I050", "team_name": "Mind Crafters", "tl_name": "Sahitya Raman", "tl_roll": "CB.EN.U4ARE25040", "m1_name": "Suneeth Kumar. S", "m1_roll": "CB.EN.U4ARE25050", "m2_name": "P M Indraj", "m2_roll": "CB.EN.U4ARE25033", "m3_name": "Govardhan S", "m3_roll": "CB.EN.U4ARE25057"},
+{"team_id": "GEN26-A0H-I051", "team_name": "YUKTHI", "tl_name": "BHALASUBRAMANIYAN RAMAKRISHNAN", "tl_roll": "CB.EN.U4ECE26009", "m1_name": "S.NIRANJAN", "m1_roll": "CB.EN.U4ECE26037", "m2_name": "POOJA.S", "m2_roll": "CB.EN.U4CCE26137", "m3_name": "P.SHAGARIKA", "m3_roll": "CB.EN.U4CCE26135"},
+{"team_id": "GEN26-A0H-I052", "team_name": "CodeWave", "tl_name": "Sayantika Das", "tl_roll": "CB.SC.U4CSE26353", "m1_name": "Debangshi Bhattacharya", "m1_roll": "CB.EN.U4CCE26004", "m2_name": "Seevaanee E", "m2_roll": "CB.SC.U4CSE26452", "m3_name": "Kollapaneni Himani", "m3_roll": "CB.SC.U4CSE26326"},
+{"team_id": "GEN26-A0H-I053", "team_name": "Team fluX", "tl_name": "Gokul Santhosh", "tl_roll": "CB.PS.I5DAS25111", "m1_name": "Harini kathiresan", "m1_roll": "CB.PS.I5DAS25112", "m2_name": "Shahana", "m2_roll": "CB.PS.I5DAS25027", "m3_name": "Sarvajit N", "m3_roll": "CB.PS.I5DAS25140"},
+{"team_id": "GEN26-A0H-I055", "team_name": "Clover", "tl_name": "Lathika B", "tl_roll": "CB.SC.U4CSE26135", "m1_name": "Lohithaa M", "m1_roll": "CB.SC.U4CSE26328", "m2_name": "Asmitha M", "m2_roll": "CB.SC.U4CSE26306", "m3_name": "Lakshya .A.S", "m3_roll": "CB.SC.U4CSE26426"},
+{"team_id": "GEN26-A0H-I056", "team_name": "THE GENESIS", "tl_name": "A Kirtheesh", "tl_roll": "CB.EN.U4EEE26101", "m1_name": "D.Hashwanth", "m1_roll": "CB.EN.U4EEE26207", "m2_name": "Dhriti Shaju", "m2_roll": "CB.EN.U4EEE26149", "m3_name": "Ramdev P S", "m3_roll": "CB.EN.U4EEE26230"},
+{"team_id": "GEN26-A0H-I057", "team_name": "WATTCORE", "tl_name": "ARUN ARUMUGAM", "tl_roll": "CB.EN.U4EEE26106", "m1_name": "ARIHANT C.A.", "m1_roll": "CB.EN.U4EEE26105", "m2_name": "HARISH S.D.", "m2_roll": "CB.EN.U4EEE26113", "m3_name": "ANNAMALAI ARUNACHALAM", "m3_roll": "CB.EN.U4EEE26206"},
+{"team_id": "GEN26-A0H-I058", "team_name": "BUGLORDS", "tl_name": "DHARUNEASHWAR E", "tl_roll": "CB.AI.U4AAR26019", "m1_name": "RUPESH S", "m1_roll": "CB.SC.U4CYS26143", "m2_name": "S M SRIHARIPRASATH", "m2_roll": "CB.AI.U4AAR26047", "m3_name": "SHABHARISH J M", "m3_roll": "CB.SC.U4CYS26156"},
+{"team_id": "GEN26-A0H-I060", "team_name": "DynaCharge", "tl_name": "Sathi Siva Ramakrishna Reddy", "tl_roll": "CB.EN.U4ARE25043", "m1_name": "Galanagari Karthik Reddy", "m1_roll": "CB.EN.U4ARE25016", "m2_name": "Maanasha S", "m2_roll": "CB.EN.U4ARE25025", "m3_name": "Reshma", "m3_roll": "CB.EN.U4ARE25036"},
+{"team_id": "GEN26-A0H-I061", "team_name": "Gryffindor", "tl_name": "Sarvesh S", "tl_roll": "CB.EN.U4CCE26148", "m1_name": "Dilipkumar A", "m1_roll": "CB.EN.U4CCE26118", "m2_name": "Abhijith S", "m2_roll": "CB.EN.U4CCE26101", "m3_name": "Muhammad Rayyan K A", "m3_roll": "CB.EN.U4CCE26030"},
+{"team_id": "GEN26-A0H-I062", "team_name": "Srinavs Ramanujan", "tl_name": "Samarth sethuraman", "tl_roll": "CB.EN.U4ELC26143", "m1_name": "Tammana Sriram", "m1_roll": "CB.EN.U4ELC26148", "m2_name": "Melvin 9", "m2_roll": "CB.EN.U4ELC26128", "m3_name": "L.V.Nitesh Kummar", "m3_roll": "CB.EN.U4ELC26123"},
+{"team_id": "GEN26-A0H-I063", "team_name": "Robast", "tl_name": "Aswanth Jain C", "tl_roll": "CB.EN.U4CCE25006", "m1_name": "Bala Ragavan K", "m1_roll": "CB.EN.U4CCE25011", "m2_name": "Rohit S R", "m2_roll": "CB.EN.U4CCE25044", "m3_name": "Rohith N M", "m3_roll": "CB.EN.U4CCE25043"},
+{"team_id": "GEN26-A0H-I065", "team_name": "The 4 Dimension", "tl_name": "Shobika S", "tl_roll": "CB.EN.U4ECE26050", "m1_name": "Ananya Viswanathan", "m1_roll": "CB.EN.U4ECE26005", "m2_name": "Swathi Theertha K B", "m2_roll": "CB.EN.U4ECE26055", "m3_name": "V S Lithanya Varshigha", "m3_roll": "CB.EN.U4ECE26258"},
+{"team_id": "GEN26-A0H-I066", "team_name": "Idealogists", "tl_name": "Gopammagari Manu Deep Reddy", "tl_roll": "CB.SC.U4CSE26618", "m1_name": "P Nishanth", "m1_roll": "CB.SC.U4CSE26146", "m2_name": "P Dhivyes", "m2_roll": "CB.SC.U4CSE26145", "m3_name": "V Ragghul", "m3_roll": "CB.SC.U4CSE26163"},
+{"team_id": "GEN26-A0H-I067", "team_name": "Aviators", "tl_name": "Varshith Vrindesh", "tl_roll": "CB.EN.U4AEE25053", "m1_name": "Jatin Dinesh", "m1_roll": "CB.EN.U4AEE25020", "m2_name": "RVS Gurucharan", "m2_roll": "CB.EN.U4AEE25037", "m3_name": "Akshara Pulicherla", "m3_roll": "CB.EN.U4AEE25003"},
+{"team_id": "GEN26-A0H-I069", "team_name": "ASGUARDIANS", "tl_name": "Shree Ishwarya R", "tl_roll": "CB.EN.U4ARE25044", "m1_name": "Roopali S", "m1_roll": "CB.EN.U4ARE25037", "m2_name": "Saai Adith K", "m2_roll": "CB.EN.U4ARE25039", "m3_name": "Sridhar V R", "m3_roll": "CB.EN.U4ARE25048"},
+{"team_id": "GEN26-A0H-I070", "team_name": "INFINITE LOOPS", "tl_name": "Tharunesh P", "tl_roll": "CB.EN.U4ARE25054", "m1_name": "Vijeeshvar S S", "m1_roll": "CB.EN.U4ARE25055", "m2_name": "Rupesh Gokula Krishnan", "m2_roll": "CB.EN.U4ARE25038", "m3_name": "Siddharth T", "m3_roll": "CB.EN.U4ARE25045"},
+{"team_id": "GEN26-A0H-I071", "team_name": "OPTIMUS PRIME", "tl_name": "G A Yuvan", "tl_roll": "CB.EN.U4ARE25014", "m1_name": "Harshitha Kothandam Sasikumar", "m1_roll": "CB.EN.U4ARE25021", "m2_name": "Manu K", "m2_roll": "CB.EN.U4ARE25026", "m3_name": "Kousik Kumar", "m3_roll": "CB.EN.U4ARE25022"},
+{"team_id": "GEN26-A0H-I072", "team_name": "Hacknova", "tl_name": "Pratibha B", "tl_roll": "CB.SC.U4CSE26440", "m1_name": "Pranayaa AS", "m1_roll": "CB.SC.U4CSE26438", "m2_name": "Kesava pritha M K", "m2_roll": "CB.SC.U4CYS26024", "m3_name": "Visrutha N", "m3_roll": "CB.SC.U4CSE26365"},
+{"team_id": "GEN26-A0H-I074", "team_name": "Team Mayrix", "tl_name": "Tanishq Rathi", "tl_roll": "CB.SC.U4CSE26762", "m1_name": "Manoj Midran", "m1_roll": "CB.SC.U4CSE26732", "m2_name": "K Anish", "m2_roll": "CB.SC.U4CSE26725", "m3_name": "Arya V", "m3_roll": "CB.SC.U4CSE26709"},
+{"team_id": "GEN26-A0H-I075", "team_name": "Creovate", "tl_name": "Lakshika G K", "tl_roll": "CB.EN.U4ARE25023", "m1_name": "Abishekapriyan M", "m1_roll": "CB.EN.U4ARE25002", "m2_name": "Aravind", "m2_roll": "CB.EN.U4ARE25006", "m3_name": "Hariesh K S", "m3_roll": "CB.EN.U4ARE25019"},
+{"team_id": "GEN26-A0H-I076", "team_name": "Nerdsquad", "tl_name": "Tejashwini M R", "tl_roll": "CB.EN.U4ELC25040", "m1_name": "Shreya V", "m1_roll": "CB.PS.I5DAS25036", "m2_name": "MITHUN S", "m2_roll": "CB.SC.U4CSE25434", "m3_name": "Libika Sri S", "m3_roll": "CB.PS.I5DAS25015"},
+{"team_id": "GEN26-A0H-I077", "team_name": "Aether", "tl_name": "Nandana arun nair", "tl_roll": "CB.AI.U4AAR26037", "m1_name": "Pallavi S Nair", "m1_roll": "CB.AI.U4AAR26040", "m2_name": "Adithya Arun", "m2_roll": "CB.SC.U4AIE26002", "m3_name": "Aagney Kanjur Vinod", "m3_roll": "CB.SC.U4AIE26136"},
+{"team_id": "GEN26-A0H-I078", "team_name": "Kratos", "tl_name": "Nithin Venu Babu", "tl_roll": "CB.EN.U4ARE25032", "m1_name": "Adhiv Elisha", "m1_roll": "CB.EN.U4ARE25003", "m2_name": "Anav Honymon", "m2_roll": "CB.EN.U4ARE25004", "m3_name": "Nithin Akash", "m3_roll": "CB.EN.U4ARE25031"},
+{"team_id": "GEN26-A0H-I079", "team_name": "PhantomCore", "tl_name": "Mahitha S", "tl_roll": "CB.SC.U4CSE25638", "m1_name": "Sruthica M S", "m1_roll": "CB.SC.U4CSE25657", "m2_name": "Mahasri Murugesan", "m2_roll": "CB.SC.U4CSE25637", "m3_name": "Agastiya Jegadeesan Logambal", "m3_roll": "CB.SC.U4CSE25603"},
+{"team_id": "GEN26-A0H-I080", "team_name": "thefourbroskies", "tl_name": "Jeeva Rakshitha M", "tl_roll": "CB.EN.U4CCE26016", "m1_name": "Pradeesh Kanna M", "m1_roll": "CB.EN.U4CCE26036", "m2_name": "Thaarigaa D", "m2_roll": "CB.EN.U4CCE26003", "m3_name": "Dharshan S", "m3_roll": "CB.EN.U4CCE26006"},
+{"team_id": "GEN26-A0H-I081", "team_name": "Nexora", "tl_name": "Gokul B Nair", "tl_roll": "CB.SC.U4CSE25320", "m1_name": "Adwaith V", "m1_roll": "CB.SC.U4CSE25602", "m2_name": "Joel John Juby", "m2_roll": "CB.SC.U4CSE25521", "m3_name": "Krishnalal BR", "m3_roll": "CB.SC.U4CSE25529"},
+{"team_id": "GEN26-A0H-I082", "team_name": "Think4ward", "tl_name": "S K Rubini", "tl_roll": "CB.SC.U4CSE25547", "m1_name": "Iniya Srilekha Balasubramaniam", "m1_roll": "CB.SC.U4CSE25323", "m2_name": "Keerthana Devi R", "m2_roll": "CB.SC.U4CSE25331", "m3_name": "Amirtha", "m3_roll": "CB.SC.U4CYS25105"},
+{"team_id": "GEN26-A0H-I084", "team_name": "SAAND", "tl_name": "Austin Binoy", "tl_roll": "CB.EN.U4ARE25008", "m1_name": "H Dheeraj", "m1_roll": "CB.EN.U4ARE25017", "m2_name": "Ashwin shajil", "m2_roll": "CB.EN.U4ARE25007", "m3_name": "Siddharth haripanicker", "m3_roll": "CB.EN.U4ARE25018"},
+{"team_id": "GEN26-A0H-I085", "team_name": "Innovate", "tl_name": "Devi Nandana N", "tl_roll": "CB.SC.U4CYS26110", "m1_name": "S Sadhana", "m1_roll": "CB.SC.U4CYS26148", "m2_name": "Mahisalini D S", "m2_roll": "CB.SC.U4CYS26125", "m3_name": "Vaishnaa Shri P", "m3_roll": "CB.AI.U4AID26065"},
+{"team_id": "GEN26-A0H-I086", "team_name": "Vortex", "tl_name": "Aruhi Bourasi", "tl_roll": "CB.EN.U4ECE26307", "m1_name": "S.Vinay Siddharth", "m1_roll": "CB.EN.U4ECE26341", "m2_name": "Gayatri Girish", "m2_roll": "CB.EN.U4ECE26314", "m3_name": "Sriguru A", "m3_roll": "CB.EN.U4ECE26350"},
+{"team_id": "GEN26-A0H-I088", "team_name": "Arachnobotics", "tl_name": "Pawan D Sencha", "tl_roll": "CB.EN.U4ARE25034", "m1_name": "Andriea Jacob", "m1_roll": "CB.EN.U4ARE25005", "m2_name": "Subanesh J L", "m2_roll": "CB.EN.U4ARE25051", "m3_name": "Hariharan", "m3_roll": "CB.EN.U4ARE25020"},
+{"team_id": "GEN26-A0H-I089", "team_name": "Lakshya", "tl_name": "Putta Sethu Sagar Reddy", "tl_roll": "CB.EN.U4ARE25035", "m1_name": "Srihari P", "m1_roll": "CB.EN.U4ARE25049", "m2_name": "Nandigam Gnan Sandeep", "m2_roll": "CB.EN.U4MEE25024", "m3_name": "Sidharth R Varma", "m3_roll": "CB.EN.U4ARE25046"},
+{"team_id": "GEN26-A0H-I090", "team_name": "Surya vault", "tl_name": "S.KAVIN MUTHUVEL", "tl_roll": "CB.EN.U4EEE26033", "m1_name": "Shantibhushan", "m1_roll": "CB.EN.U4EEE26034", "m2_name": "Mugilan", "m2_roll": "CB.EN.U4EEE26025", "m3_name": "Harini", "m3_roll": "CB.EN.U4EEE26013"},
+{"team_id": "GEN26-A0H-I091", "team_name": "DESTINY", "tl_name": "RAHUL SANJIV R", "tl_roll": "CB.EN.U4ELC26038", "m1_name": "Prajit S D", "m1_roll": "CB.EN.U4ELC26032", "m2_name": "Jai Nivas V", "m2_roll": "CB.EN.U4CCE25025", "m3_name": "Sutharsan R", "m3_roll": "CB.EN.U4CCE25052"},
+{"team_id": "GEN26-A0H-I092", "team_name": "D5", "tl_name": "SREELEKSHMI NAIR", "tl_roll": "CB.EN.U4ARE25047", "m1_name": "Surya S", "m1_roll": "CB.EN.U4ARE25056", "m2_name": "Prithvi Adarsh R", "m2_roll": "CB.EN.U4ARE25060", "m3_name": "Harshavardhaman AS", "m3_roll": "CB.EN.U4ARE25062"},
+{"team_id": "GEN26-A0H-I093", "team_name": "Teen Titans", "tl_name": "M Dharshan", "tl_roll": "CB.EN.U4ARE25024", "m1_name": "Mirnalitha V S", "m1_roll": "CB.EN.U4ARE25027", "m2_name": "Dharsshini B A", "m2_roll": "CB.EN.U4ARE25013", "m3_name": "Miruthala Mohan", "m3_roll": "CB.EN.U4ARE25028"},
+{"team_id": "GEN26-A0H-I095", "team_name": "SIX-SEVEN", "tl_name": "Srisailaswaran A", "tl_roll": "CB.EN.U4EEE25044", "m1_name": "Surya V", "m1_roll": "CB.EN.U4EEE25049", "m2_name": "Surendran M", "m2_roll": "CB.EN.U4EEE25047", "m3_name": "Omeshvardhan T P", "m3_roll": "CB.EN.U4EEE25030"},
+{"team_id": "GEN26-A0H-I096", "team_name": "Dark Mod Devs", "tl_name": "Thiruvenkadesuwaran S", "tl_roll": "CB.SC.U4CYS26162", "m1_name": "K Prajit Raj", "m1_roll": "CB.SC.U4CYS26118", "m2_name": "Senthil Yohan N", "m2_roll": "CB.SC.U4CYS26155", "m3_name": "Nithin V", "m3_roll": "CB.SC.U4CYS26133"},
+{"team_id": "GEN26-A0H-I097", "team_name": "The disruptors", "tl_name": "Anish.U.K", "tl_roll": "CB.SC.U4CSE26605", "m1_name": "Aathithya.S.R", "m1_roll": "CB.SC.U4CSE26303", "m2_name": "Adityaa Vaishnave.K", "m2_roll": "CB.SC.U4CSE26604", "m3_name": "Mohnish kumar.R.B", "m3_roll": "CB.AI.U4AIM26029"},
+{"team_id": "GEN26-A0H-I098", "team_name": "HydraX", "tl_name": "CS Vishnu", "tl_roll": "CB.SC.U4CSE25511", "m1_name": "Bhupeesh P", "m1_roll": "CB.SC.U4CSE25508", "m2_name": "SN Deepak", "m2_roll": "CB.SC.U4CSE25548", "m3_name": "K B Samyuktha", "m3_roll": "CB.SC.U4CSE25522"},
+{"team_id": "GEN26-A0H-I100", "team_name": "Civis Terra", "tl_name": "S.Neal Anto", "tl_roll": "CB.EN.U4CIE26056", "m1_name": "Boopeshwar S", "m1_roll": "CB.EN.U4CIE26006", "m2_name": "Vishnu Prasad M V", "m2_roll": "CB.EN.U4CIE26067", "m3_name": "Sasikiran Reddy Marla", "m3_roll": "CB.EN.U4CIE26058"},
+{"team_id": "GEN26-A0H-I105", "team_name": "Dark Protocol", "tl_name": "Sattineni Venkata Satya Tulasi Ram", "tl_roll": "CB.AI.U4CPS25046", "m1_name": "Nithin", "m1_roll": "CB.AI.U4CPS25033", "m2_name": "Nehasri Mullapudi", "m2_roll": "CB.AI.U4CPS25031", "m3_name": "Pavna Preethikha M", "m3_roll": "CB.AI.U4CPS25024"},
+{"team_id": "GEN26-A0H-I107", "team_name": "QuadraMind", "tl_name": "S . SAI SWATHEE", "tl_roll": "CB.EN.U4ECE25039", "m1_name": "Sridha Anbukumar", "m1_roll": "CB.EN.U4CCE25051", "m2_name": "V . Harshini", "m2_roll": "CB.EN.U4CCE25059", "m3_name": "NIVEDITHA KRISHNA", "m3_roll": "CB.SC.U4CYS25133"},
+{"team_id": "GEN26-A0H-I108", "team_name": "Nextra", "tl_name": "U Harish Karthic", "tl_roll": "CB.SC.U4CSE25659", "m1_name": "Bharanidaran S", "m1_roll": "CB.SC.U4CSE25609", "m2_name": "Dharshan S", "m2_roll": "CB.SC.U4CSE25614", "m3_name": "Lohit Kumar R E", "m3_roll": "CB.SC.U4CSE25636"},
+{"team_id": "GEN26-A0H-I109", "team_name": "Nexora", "tl_name": "Nidarshanaa S", "tl_roll": "CB.SC.U4CYS26132", "m1_name": "Neha Rajesh", "m1_roll": "CB.SC.U4CYS26130", "m2_name": "Raksitha S", "m2_roll": "CB.SC.U4CYS26140", "m3_name": "Rakesh Raam J", "m3_roll": "CB.SC.U4CYS26044"},
+{"team_id": "GEN26-A0H-I111", "team_name": "LARPSTACK", "tl_name": "DIVYA SRI K", "tl_roll": "CB.PS.I5DAS25107", "m1_name": "AKCHARA P", "m1_roll": "CB.AI.U4QTS25004", "m2_name": "JAYASURIYAN.R", "m2_roll": "CB.EN.U4ELC25014", "m3_name": "KAVIN PRASATH A R", "m3_roll": "CB.SC.U4CSE25329"},
+{"team_id": "GEN26-A0H-I112", "team_name": "PixelPirates", "tl_name": "Naren Kaarthi G", "tl_roll": "CB.SC.U4CSE25642", "m1_name": "Mithun prasath k", "m1_roll": "CB.SC.U4CSE25640", "m2_name": "Giri prasath", "m2_roll": "CB.SC.U4CSE25643", "m3_name": "Muhammad nihadh", "m3_roll": "CB.SC.U4CSE25729"},
+{"team_id": "GEN26-A0H-I114", "team_name": "Brainbyte", "tl_name": "Krithik", "tl_roll": "CB.EN.U4EEE25021", "m1_name": "Botla Anil", "m1_roll": "CB.EN.U4EEE25010", "m2_name": "Bhuvanesh", "m2_roll": "CB.EN.U4EEE25009", "m3_name": "Divya Balan", "m3_roll": "CB.EN.U4EEE25012"},
+{"team_id": "GEN26-A0H-I115", "team_name": "TEAM PR", "tl_name": "Hanumithan.AL", "tl_roll": "CB.EN.U4ECE26064", "m1_name": "Nivedh.T", "m1_roll": "CB.EN.U4ECE26039", "m2_name": "Shruthi Ranjane B.S", "m2_roll": "CB.EN.U4ECE26052", "m3_name": "Sunil Krishna", "m3_roll": "CB.EN.U4ECE26054"},
+{"team_id": "GEN26-A0H-I117", "team_name": "ICARUS", "tl_name": "SRIJAN G S", "tl_roll": "CB.AI.U4AAR26053", "m1_name": "SURYAA NAVEEN", "m1_roll": "CB.AI.U4AAR26054", "m2_name": "ARIYAV MADHESH R", "m2_roll": "CB.AI.U4AAR26008", "m3_name": "ADAPA PRAVEENYA SRI", "m3_roll": "CB.AI.U4AAR26003"},
+{"team_id": "GEN26-A0H-I118", "team_name": "Nexus", "tl_name": "Akshaya N", "tl_roll": "CB.PS.I5DAS26154", "m1_name": "K. Lipika Sri", "m1_roll": "CB.PS.I5DAS26118", "m2_name": "Sasmitha T", "m2_roll": "CB.PS.I5DAS26134", "m3_name": "Iniya Sri S", "m3_roll": "CB.PS.I5DAS26115"},
+{"team_id": "GEN26-A0H-I119", "team_name": "Heisenbug", "tl_name": "Prithvi Chandrasekaran", "tl_roll": "CB.EN.U4ECE26337", "m1_name": "Bhooshan E B", "m1_roll": "CB.EN.U4ECE26310", "m2_name": "Dhayalan V", "m2_roll": "CB.EN.U4ECE26313", "m3_name": "Viswanathan S", "m3_roll": "CB.EN.U4ECE26364"},
+{"team_id": "GEN26-A0H-I121", "team_name": "Aristella", "tl_name": "Dhanushiya S", "tl_roll": "CB.AI.U4CPS25058", "m1_name": "Vani Shivaja Karre", "m1_roll": "CB.AI.U4CPS25051", "m2_name": "Pardhav Annareddy Reddy", "m2_roll": "CB.AI.U4CPS25059", "m3_name": "Dhiren Vasudeva", "m3_roll": "CB.AI.U4CPS25014"},
+{"team_id": "GEN26-A0H-I123", "team_name": "Binary Brains", "tl_name": "D Rithull Vaishnav", "tl_roll": "CB.EN.U4ELC26109", "m1_name": "Chundi Karthik", "m1_roll": "CB.EN.U4ELC26108", "m2_name": "Aditya Ajit Dubal", "m2_roll": "CB.EN.U4ELC26103", "m3_name": "Pratik Sundar Barik", "m3_roll": "CB.EN.U4ELC26134"},
+{"team_id": "GEN26-A0H-I124", "team_name": "INTELLIHIVE", "tl_name": "ARCHAND S", "tl_roll": "CB.AI.U4QTS25007", "m1_name": "Kruthic Kumar N L", "m1_roll": "CB.PS.I5DAS25014", "m2_name": "PRANAV S", "m2_roll": "CB.PS.I5DAS25128", "m3_name": "SWETHA T", "m3_roll": "CB.PS.I5DAS25136"},
+{"team_id": "GEN26-A0H-I125", "team_name": "PHOENIX", "tl_name": "S Sahana", "tl_roll": "CB.EN.U4CHE25056", "m1_name": "Varunya R", "m1_roll": "CB.EN.U4CHE25049", "m2_name": "Subashini R", "m2_roll": "CB.EN.U4CHE25036", "m3_name": "Naman Goyal", "m3_roll": "CB.EN.U4CHE25029"},
+{"team_id": "GEN26-A0H-I126", "team_name": "Nexova", "tl_name": "R Sanjay", "tl_roll": "CB.SC.U4CSE25239", "m1_name": "Sivani S", "m1_roll": "CB.SC.U4CSE25246", "m2_name": "Pawish P", "m2_roll": "CB.SC.U4CSE25236", "m3_name": "Praniga R", "m3_roll": "CB.SC.U4CSE25237"},
+{"team_id": "GEN26-A0H-I127", "team_name": "Ignite", "tl_name": "Aadrika Bharadwaj", "tl_roll": "CB.AI.U4QTS26001", "m1_name": "R.Samyukta", "m1_roll": "CB.EN.U4ELC26135", "m2_name": "Parthiv. P.C", "m2_roll": "CB.EN.U4ELC26132", "m3_name": "Abhinash S", "m3_roll": "CB.AI.U4QTS26003"},
+{"team_id": "GEN26-A0H-I128", "team_name": "LOGIC LOOM", "tl_name": "Badhma Sree Vignesh S", "tl_roll": "CB.EN.U4CCE25009", "m1_name": "Prithivram B", "m1_roll": "CB.EN.U4CCE25040", "m2_name": "Mahathi.S", "m2_roll": "CB.EN.U4CCE25028", "m3_name": "Darshan B", "m3_roll": "CB.EN.U4CCE25015"},
+{"team_id": "GEN26-A0H-I129", "team_name": "Code Breakers", "tl_name": "Abhimanyu Seth", "tl_roll": "CB.EN.U4CCE26102", "m1_name": "Aniruddha Dhar", "m1_roll": "CB.SC.U4CSE26108", "m2_name": "Aniruddh Gutta", "m2_roll": "CB.EN.U4CCE26001", "m3_name": "Sohan Ghosh", "m3_roll": "CB.EN.U4CCE26153"},
+{"team_id": "GEN26-A0H-I130", "team_name": "Tech Entity", "tl_name": "Mithun Karthik Dhaneshkumar", "tl_roll": "CB.EN.U4CCE25030", "m1_name": "ITHYAASH S", "m1_roll": "CB.EN.U4CCE25023", "m2_name": "Manju Bhashini Senthilkumar", "m2_roll": "CB.EN.U4CCE25029", "m3_name": "Thiyaasri M", "m3_roll": "CB.EN.U4CCE25055"},
+{"team_id": "GEN26-A0H-I131", "team_name": "Zenix", "tl_name": "Rithikaa", "tl_roll": "CB.SC.U4CYS26047", "m1_name": "Sarvesh Subramanian S", "m1_roll": "CB.SC.U4CYS26052", "m2_name": "Aachitya Singh", "m2_roll": "CB.SC.U4CYS26002", "m3_name": "Anushka Acharjee", "m3_roll": "CB.SC.U4CYS26007"},
+{"team_id": "GEN26-A0H-I132", "team_name": "JASMIN", "tl_name": "MHALSA PADMAKUMAR", "tl_roll": "CB.AI.U4AIM25052", "m1_name": "SHIZA CKV", "m1_roll": "CB.AI.U4AIM25037", "m2_name": "JOSHIKA C D", "m2_roll": "CB.AI.U4AIM25014", "m3_name": "ANWAIKA SANVI P T", "m3_roll": "CB.AI.U4AIM25044"},
+{"team_id": "GEN26-A0H-I133", "team_name": "TECH FORGE 6", "tl_name": "SIVA PRASANTHAM K", "tl_roll": "CB.SC.U4AIE26161", "m1_name": "GOWTHAM KRISHNA J", "m1_roll": "CB.EN.U4ECE26316", "m2_name": "SRI VARSHAN M", "m2_roll": "CB.SC.U4AIE26162", "m3_name": "MOHUL M", "m3_roll": "CB.SC.U4AIE26142"},
+{"team_id": "GEN26-A0H-I134", "team_name": "Starwars", "tl_name": "A.S.K.Nayanida", "tl_roll": "CB.SC.U4CSE25601", "m1_name": "Naziya", "m1_roll": "CB.SC.U4CSE25038", "m2_name": "Sri Karthik.P", "m2_roll": "CB.SC.U4CSE25056", "m3_name": "Lakshana K", "m3_roll": "CB.SC.U4CSE25221"},
+{"team_id": "GEN26-A0H-I137", "team_name": "Team Dots", "tl_name": "Sneha Sahu", "tl_roll": "CB.SC.U4CSE26655", "m1_name": "Katta Hamshika Padmini", "m1_roll": "CB.SC.U4CSE26323", "m2_name": "K V Rubika", "m2_roll": "CB.SC.U4CSE26623", "m3_name": "Chittem Amrutha Varshini", "m3_roll": "CB.SC.U4CSE26017"},
+{"team_id": "GEN26-A0H-I139", "team_name": "MATSYA", "tl_name": "Neil Ganguly", "tl_roll": "CB.EN.U4AEE25057", "m1_name": "Monisa Reddy", "m1_roll": "CB.EN.U4AEE25051", "m2_name": "Sandeep Kumar S", "m2_roll": "CB.EN.U4AEE25043", "m3_name": "Dinesh Karthik", "m3_roll": "CB.EN.U4AEE25058"},
+{"team_id": "GEN26-A0H-I140", "team_name": "QuickER", "tl_name": "Shreyas R", "tl_roll": "CB.SC.U4CYS25162", "m1_name": "Shabarish B", "m1_roll": "CB.SC.U4CYS25161", "m2_name": "Pranav Abuvarajan", "m2_roll": "CB.SC.U4CYS25137", "m3_name": "Sandilya kodavatikanti", "m3_roll": "CB.SC.U4CYS25029"},
+{"team_id": "GEN26-A0H-I141", "team_name": "Shinchan", "tl_name": "Palella Bhanu Prasad", "tl_roll": "CB.AI.U4CPS25034", "m1_name": "Gullanki Bhagya Lakshmi", "m1_roll": "CB.AI.U4CPS25018", "m2_name": "S V PAVAN KALYAN", "m2_roll": "CB.AI.U4AID25046", "m3_name": "V Manasvith Reddy", "m3_roll": "CB.AI.U4AAR26059"},
+{"team_id": "GEN26-A0H-I142", "team_name": "QuadriX", "tl_name": "K.A.Tirunavukkarasu", "tl_roll": "CB.SC.U4AIE26067", "m1_name": "Monish karthik.S", "m1_roll": "CB.SC.U4AIE26034", "m2_name": "Surya P", "m2_roll": "CB.AI.U4CPS26057", "m3_name": "Kirthi Madala", "m3_roll": "CB.SC.U4AIE26027"},
+{"team_id": "GEN26-A0H-I143", "team_name": "Debug Avengers", "tl_name": "KETHARAJU BHARGAV", "tl_roll": "CB.SC.U4CSE26768", "m1_name": "KELAM RAHUL", "m1_roll": "CB.SC.U4CSE26132", "m2_name": "GUGGILLA RAKETH SASTRY", "m2_roll": "CB.SC.U4CSE26719", "m3_name": "LALAM TEJASH", "m3_roll": "CB.SC.U4CSE26525"},
+{"team_id": "GEN26-A0H-I144", "team_name": "Nexus", "tl_name": "Jencii S", "tl_roll": "CB.EN.U4ELC26020", "m1_name": "Dharsana P R", "m1_roll": "CB.EN.U4ELC26013", "m2_name": "Harini sabariraj", "m2_roll": "CB.EN.U4CCE26122", "m3_name": "Divyadharsini J", "m3_roll": "CB.EN.U4CCE26119"},
+{"team_id": "GEN26-A0H-I146", "team_name": "Team Rocket", "tl_name": "Saai sakkthivel S", "tl_roll": "CB.EN.U4ELC25131", "m1_name": "Dhyanesh Raja M S", "m1_roll": "CB.EN.U4ELC25114", "m2_name": "Rohit LAL P P", "m2_roll": "CB.EN.U4ELC25129", "m3_name": "Shakthi Ganapathi", "m3_roll": "CB.EN.U4ELC25152"},
+{"team_id": "GEN26-A0H-I148", "team_name": "RoboRookies", "tl_name": "Trishul Sankar.G", "tl_roll": "CB.EN.U4ARE26069", "m1_name": "Subradheepan K", "m1_roll": "CB.EN.U4ARE26065", "m2_name": "Shashwat Padmanabhan Harith", "m2_roll": "CB.EN.U4ARE26059", "m3_name": "Jeyarjun Rakshith", "m3_roll": "CB.EN.U4ARE26027"},
+{"team_id": "GEN26-A0H-I149", "team_name": "F.I.A", "tl_name": "V Vishvanth Ram", "tl_roll": "CB.EN.U4AEE26062", "m1_name": "Topalle Venkata Ananta Sai Subrahmanyam", "m1_roll": "CB.EN.U4AEE26061", "m2_name": "Vedant Vishwas Chopade", "m2_roll": "CB.EN.U4AEE26063", "m3_name": "Gollamudi Srirama Kanvas", "m3_roll": "CB.EN.U4AEE26016"},
+{"team_id": "GEN26-A0H-I151", "team_name": "NEXORA", "tl_name": "Tanuj reddy yatham", "tl_roll": "CB.EN.U4ARE25053", "m1_name": "Nikesh baisani", "m1_roll": "CB.EN.U4ARE25009", "m2_name": "G Sohil kumar", "m2_roll": "CB.EN.U4ARE25015", "m3_name": "Ravi Kowshik", "m3_roll": "CB.EN.U4ARE25061"},
+{"team_id": "GEN26-A0H-I153", "team_name": "Watch dogs", "tl_name": "Ananya A", "tl_roll": "CB.EN.U4ARE25059", "m1_name": "Gokulakrishnan", "m1_roll": "CB.EN.U4ARE25001", "m2_name": "Thushhar Vinoth", "m2_roll": "CB.EN.U4ARE25058", "m3_name": "Sarweshwaran G P", "m3_roll": "CB.EN.U4ARE25042"},
+{"team_id": "GEN26-A0H-I154", "team_name": "Nexus0", "tl_name": "Hashika N", "tl_roll": "CB.PS.I5MAT25008", "m1_name": "Uthara U", "m1_roll": "CB.PS.I5MAT25015", "m2_name": "Muskaan Chhabra", "m2_roll": "CB.PS.I5MAT25012", "m3_name": "Madana Ankitha", "m3_roll": "CB.PS.I5MAT25009"},
+{"team_id": "GEN26-A0H-I157", "team_name": "Quties", "tl_name": "Vismay A", "tl_roll": "CB.AI.U4QTS25048", "m1_name": "Ujwal Tatavarthi", "m1_roll": "CB.AI.U4QTS25046", "m2_name": "Tanakala Santhosh", "m2_roll": "CB.AI.U4QTS25042", "m3_name": "Koppula Prajith Reddy", "m3_roll": "CB.AI.U4QTS25027"},
+{"team_id": "GEN26-A0H-I159", "team_name": "Team TechNova", "tl_name": "Muhil M", "tl_roll": "CB.SC.U4CSE26335", "m1_name": "Sashreek S P", "m1_roll": "CB.SC.U4CSE26249", "m2_name": "Gowthamkumar V", "m2_roll": "CB.SC.U4CYS26017", "m3_name": "Harishraj P G", "m3_roll": "CB.SC.U4CSE26318"},
+{"team_id": "GEN26-A0H-I161", "team_name": "Byte me", "tl_name": "Jeffrey Immanuel J", "tl_roll": "CB.EN.U4ARE26026", "m1_name": "Yazhini B", "m1_roll": "CB.AI.U4AIM26062", "m2_name": "Jagan Sai Reddy", "m2_roll": "CB.AI.U4AIM26012", "m3_name": "Gayathri T K", "m3_roll": "CB.AI.U4AIM26013"},
+{"team_id": "GEN26-A0H-I162", "team_name": "KDVS", "tl_name": "Saswanth", "tl_roll": "CB.SC.U4CSE26156", "m1_name": "Karun", "m1_roll": "CB.SC.U4CSE26131", "m2_name": "Deveshwar", "m2_roll": "CB.SC.U4CSE26116", "m3_name": "Sai vishal", "m3_roll": "CB.SC.U4CSE26151"},
+{"team_id": "GEN26-A0H-I163", "team_name": "SIRIUS", "tl_name": "Dharshini Karuppasamy", "tl_roll": "CB.AI.U4AIM26011", "m1_name": "Hashini M", "m1_roll": "CB.AI.U4AIM26017", "m2_name": "Shivani Manikandan Jagatha", "m2_roll": "CB.AI.U4AIM26039", "m3_name": "Akarshana", "m3_roll": "CB.AI.U4AIM26003"},
+{"team_id": "GEN26-A0H-I164", "team_name": "TECH TITANS", "tl_name": "Gowtham D", "tl_roll": "CB.SC.U4CSE26124", "m1_name": "Sharvesh S", "m1_roll": "CB.SC.U4CSE26158", "m2_name": "SIVAKUMAR", "m2_roll": "CB.SC.U4CSE26759", "m3_name": "Dhilepan A", "m3_roll": "CB.SC.U4CSE26119"},
+{"team_id": "GEN26-A0H-I165", "team_name": "YEEZY", "tl_name": "Dhanush.M", "tl_roll": "CB.EN.U4ARE25011", "m1_name": "M. Mohamed Navith", "m1_roll": "CB.EN.U4ARE25029", "m2_name": "Naren.S.S", "m2_roll": "CB.EN.U4ARE25030", "m3_name": "Surya.S", "m3_roll": "CB.EN.U4ELC25142"},
+{"team_id": "GEN26-A0H-I166", "team_name": "FixedHacks", "tl_name": "Rishvita Muppalla", "tl_roll": "CB.SC.U4CSE25731", "m1_name": "Nekkanti Sai Sameera Ram", "m1_roll": "CB.SC.U4CSE25735", "m2_name": "Nandhana Mangalath Menon", "m2_roll": "CB.SC.U4CSE25733", "m3_name": "Jiya P", "m3_roll": "CB.SC.U4CSE25719"},
+{"team_id": "GEN26-A0H-I168", "team_name": "Mavericks", "tl_name": "Jaiya Anish S", "tl_roll": "CB.SC.U4CSE26721", "m1_name": "Jeyendra Viswanadh Kancherla", "m1_roll": "CB.SC.U4CSE26723", "m2_name": "M Chandrasekaran", "m2_roll": "CB.SC.U4CSE26729", "m3_name": "Sanjeevi V Vaidyanathan", "m3_roll": "CB.SC.U4CSE26752"},
+{"team_id": "GEN26-A0H-I169", "team_name": "COMET 502", "tl_name": "SHASUWANTH VEERASEKHARAN", "tl_roll": "CB.SC.U4AIE26062", "m1_name": "MUHIL S", "m1_roll": "CB.SC.U4AIE26038", "m2_name": "Moulik Gupta", "m2_roll": "CB.SC.U4AIE26035", "m3_name": "AASHMAN SINGH", "m3_roll": "CB.SC.U4AIE26001"},
+{"team_id": "GEN26-A0H-I171", "team_name": "CodeCrafters", "tl_name": "Shweta R T", "tl_roll": "CB.SC.U4CSE26252", "m1_name": "Tanisha S", "m1_roll": "CB.SC.U4CSE26260", "m2_name": "Soma Shanmukha Priya Roy", "m2_roll": "CB.SC.U4CSE26253", "m3_name": "Kanishka S", "m3_roll": "CB.SC.U4CSE26222"},
+{"team_id": "GEN26-A0H-I172", "team_name": "Quantum", "tl_name": "Raghunathan B K", "tl_roll": "CB.SC.U4CSE26240", "m1_name": "R SREYAA", "m1_roll": "CB.SC.U4CSE26239", "m2_name": "YOGASHRI P", "m2_roll": "CB.SC.U4CSE26267", "m3_name": "Vemula Anvith", "m3_roll": "CB.SC.U4CSE26265"},
+{"team_id": "GEN26-A0H-I173", "team_name": "INNOV4", "tl_name": "Danushree", "tl_roll": "CB.SC.U4CSE26313", "m1_name": "Nibashini.V.G", "m1_roll": "CB.SC.U4CSE26363", "m2_name": "Kavyashree Rupesh", "m2_roll": "CB.SC.U4CSE26325", "m3_name": "Shamritha", "m3_roll": "CB.SC.U4CSE26354"},
+{"team_id": "GEN26-A0H-I174", "team_name": "Hacktivators", "tl_name": "Aswath P", "tl_roll": "CB.SC.U4CSE26710", "m1_name": "Aditya Sajiv", "m1_roll": "CB.SC.U4CSE26701", "m2_name": "Aswath G", "m2_roll": "CB.SC.U4CSE26206", "m3_name": "Varshita Ummaneni", "m3_roll": "CB.SC.U4CSE26561"},
+{"team_id": "GEN26-A0H-I175", "team_name": "Code Storm", "tl_name": "Yakavi S", "tl_roll": "CB.SC.U4CSE26266", "m1_name": "Aathmika S R", "m1_roll": "CB.SC.U4CSE26202", "m2_name": "Akshayashree S T", "m2_roll": "CB.SC.U4CSE26204", "m3_name": "Kamireddy Harshini", "m3_roll": "CB.SC.U4CSE26219"},
+{"team_id": "GEN26-A0H-I176", "team_name": "404: Sleep Not Found", "tl_name": "S Dheeraaj Khaan", "tl_roll": "CB.SC.U4CSE26242", "m1_name": "Rebekah D Antony", "m1_roll": "CB.SC.U4CSE26241", "m2_name": "S Harini", "m2_roll": "CB.SC.U4CSE26243", "m3_name": "ROHIT R", "m3_roll": "CB.SC.U4CSE26344"},
+{"team_id": "GEN26-A0H-I177", "team_name": "Fantastic 4", "tl_name": "Sujay Saravanan", "tl_roll": "CB.SC.U4CSE26258", "m1_name": "Sai Thanush", "m1_roll": "CB.SC.U4CSE26360", "m2_name": "Poornesh", "m2_roll": "CB.SC.U4CSE26229", "m3_name": "Umesh Dhilly", "m3_roll": "CB.SC.U4CSE26716"},
+{"team_id": "GEN26-A0H-I178", "team_name": "Four lost tourists", "tl_name": "Sabharish", "tl_roll": "CB.SC.U4AIE26056", "m1_name": "Sanjith", "m1_roll": "CB.SC.U4AIE26059", "m2_name": "Anushri Narkhede", "m2_roll": "CB.EN.U4CHE26004", "m3_name": "Saswin", "m3_roll": "CB.SC.U4AIE26060"},
+{"team_id": "GEN26-A0H-I179", "team_name": "QuadCore", "tl_name": "Sarshvika P", "tl_roll": "CB.SC.U4CSE26753", "m1_name": "Sowmitthaa C C", "m1_roll": "CB.SC.U4CSE26761", "m2_name": "Sasmitha K", "m2_roll": "CB.SC.U4CSE26155", "m3_name": "Sasmitha k", "m3_roll": "CB.SC.U4CSE26049"},
+{"team_id": "GEN26-A0H-I180", "team_name": "Dragon Ball z", "tl_name": "Sandeep K", "tl_roll": "CB.EN.U4AEE25042", "m1_name": "Pranav", "m1_roll": "CB.EN.U4AEE25036", "m2_name": "BALAJI V", "m2_roll": "CB.EN.U4AEE25007", "m3_name": "Madhavan N", "m3_roll": "CB.EN.U4AEE25027"},
+{"team_id": "GEN26-A0H-I183", "team_name": "MindMesh", "tl_name": "Sagili Venkata Rahul reddy", "tl_roll": "CB.SC.U4CSE26750", "m1_name": "Kruthika Varma U", "m1_roll": "CB.SC.U4CSE26764", "m2_name": "Chilukuri Hansitha Reddy", "m2_roll": "CB.SC.U4CSE26508", "m3_name": "Periyavaram Sri Harsha Reddy", "m3_roll": "CB.SC.U4CSE26741"},
+{"team_id": "GEN26-A0H-I184", "team_name": "Neural coders", "tl_name": "Narendran S", "tl_roll": "CB.AI.U4AID26024", "m1_name": "Anu Sri M", "m1_roll": "CB.AI.U4AID26001", "m2_name": "Midhun R", "m2_roll": "CB.AI.U4AID26020", "m3_name": "Abhinav Nallasivam", "m3_roll": "CB.AI.U4AID26051"},
+{"team_id": "GEN26-A0H-I186", "team_name": "Nexus", "tl_name": "Dheebesh L N", "tl_roll": "CB.SC.U4CSE26715", "m1_name": "Jayavanth J", "m1_roll": "CB.SC.U4CSE26722", "m2_name": "Akash T Anish", "m2_roll": "CB.SC.U4CSE26704", "m3_name": "Agnivesh", "m3_roll": "CB.SC.U4CSE26703"},
+{"team_id": "GEN26-A0H-I188", "team_name": "Team Apex", "tl_name": "R Aksith", "tl_roll": "CB.SC.U4CSE26041", "m1_name": "B Deepan", "m1_roll": "CB.SC.U4CSE26207", "m2_name": "Taresh", "m2_roll": "CB.AI.U4AID26044", "m3_name": "S Shivadas", "m3_roll": "CB.SC.U4CSE26346"},
+{"team_id": "GEN26-A0H-I189", "team_name": "Binary Minds", "tl_name": "DS Grishaa", "tl_roll": "CB.SC.U4CSE26509", "m1_name": "Devayaani Remesh", "m1_roll": "CB.SC.U4CSE26511", "m2_name": "C.Yasaswini", "m2_roll": "CB.SC.U4CSE26507", "m3_name": "D.Pravallika", "m3_roll": "CB.SC.U4CSE26510"},
+{"team_id": "GEN26-A0H-I190", "team_name": "Revolutionary", "tl_name": "Vishal viswanath", "tl_roll": "CB.SC.U4CSE26067", "m1_name": "V Pranav shrivas", "m1_roll": "CB.SC.U4CSE26059", "m2_name": "S S Sujith Babu", "m2_roll": "CB.SC.U4CSE26448", "m3_name": "Kavali B", "m3_roll": "CB.SC.U4CSE26031"},
+{"team_id": "GEN26-A0H-I192", "team_name": "Catalyst Crew", "tl_name": "Aadarsh Mutyala", "tl_roll": "CB.SC.U4CSE26302", "m1_name": "Kasa Vathsal", "m1_roll": "CB.SC.U4CSE26322", "m2_name": "Jothiraadhithya", "m2_roll": "CB.SC.U4CSE26370", "m3_name": "Yashwanth Pranauv", "m3_roll": "CB.SC.U4CSE26367"},
+{"team_id": "GEN26-A0H-I194", "team_name": "Big band bytes", "tl_name": "K B Aathika", "tl_roll": "CB.SC.U4CSE26419", "m1_name": "K Rithanyaa", "m1_roll": "CB.SC.U4CSE26445", "m2_name": "Movva Keerthi", "m2_roll": "CB.SC.U4CSE26430", "m3_name": "Gotluru Harshitha", "m3_roll": "CB.SC.U4CSE26411"},
+{"team_id": "GEN26-A0H-I195", "team_name": "Inevitable", "tl_name": "Madhuksara.U", "tl_roll": "CB.SC.U4CSE26527", "m1_name": "Pranika S", "m1_roll": "CB.SC.U4CSE26647", "m2_name": "M Navaneetha", "m2_roll": "CB.SC.U4CSE26427", "m3_name": "Jackkinsey B", "m3_roll": "CB.AI.U4QTS26060"},
+{"team_id": "GEN26-A0H-I197", "team_name": "ACHARYA", "tl_name": "Aakash S.S", "tl_roll": "CB.AG.U4AGR25002", "m1_name": "Thejunath N", "m1_roll": "CB.AG.U4AGR25051", "m2_name": "Medepalli Sowmya Sree", "m2_roll": "CB.AG.U4AGR25039", "m3_name": "K S Heshma", "m3_roll": "CB.AG.U4AGR25119"},
+{"team_id": "GEN26-A0H-I198", "team_name": "Mind Sparks", "tl_name": "Arcot Siri Chandra Sri Phani", "tl_roll": "CB.SC.U4CSE26672", "m1_name": "Rambha Kumari", "m1_roll": "CB.SC.U4CSE26671", "m2_name": "Vonteddy Keerthana", "m2_roll": "CB.SC.U4CSE26666", "m3_name": "Yedlapalli Veditha", "m3_roll": "CB.SC.U4CSE26167"},
+{"team_id": "GEN26-A0H-I199", "team_name": "codex", "tl_name": "Poojashree A R G", "tl_roll": "CB.SC.U4CSE26233", "m1_name": "Priyadharshika Nagarajan", "m1_roll": "CB.SC.U4CSE26236", "m2_name": "Sadhana M", "m2_roll": "CB.SC.U4CSE26244", "m3_name": "Patnam Venkata Harini", "m3_roll": "CB.SC.U4CSE26232"},
+{"team_id": "GEN26-A0H-I200", "team_name": "Axiom", "tl_name": "Avantika.s", "tl_roll": "CB.PS.I5MAT26022", "m1_name": "Sreeparvathy S menon", "m1_roll": "CB.PS.I5MAT26015", "m2_name": "Lakshmi Krishna B", "m2_roll": "CB.PS.I5MAT26007", "m3_name": "Sruthy Devaraj", "m3_roll": "CB.PS.I5MAT26018"},
+{"team_id": "GEN26-A0H-I201", "team_name": "Team CKAV", "tl_name": "Gundu Chandra Hasan", "tl_roll": "CB.EN.U4ECE26214", "m1_name": "karthik reddy", "m1_roll": "CB.EN.U4ECE26227", "m2_name": "Koneri Ankith", "m2_roll": "CB.EN.U4ECE26260", "m3_name": "Kandukuri varun", "m3_roll": "CB.EN.U4ECE26228"},
+{"team_id": "GEN26-A0H-I203", "team_name": "IMPACT OVER IMPULSE", "tl_name": "RAGUL PONRAJ", "tl_roll": "CB.AI.U4AAR25040", "m1_name": "BAVISH NITHIN R", "m1_roll": "CB.AI.U4AAR25010", "m2_name": "ADITYA K", "m2_roll": "CB.AI.U4AAR25005", "m3_name": "KARTHIK M G", "m3_roll": "CB.AI.U4QTS25026"},
+{"team_id": "GEN26-A0H-I204", "team_name": "ByteBlaze", "tl_name": "Harini S", "tl_roll": "CB.SC.U4CSE26720", "m1_name": "C.Lasyapriya", "m1_roll": "CB.SC.U4CSE26769", "m2_name": "Riduvarshini.D", "m2_roll": "CB.SC.U4CSE26342", "m3_name": "Nikitha Varshini Parthiban", "m3_roll": "CB.SC.U4CSE26739"},
+{"team_id": "GEN26-A0H-I205", "team_name": "CTRL_ALT_ROOT", "tl_name": "Tejesh Reddy Ankalagari", "tl_roll": "CB.SC.U4CSE26359", "m1_name": "Prince Kumar", "m1_roll": "CB.SC.U4CSE26648", "m2_name": "Harini Tankasala", "m2_roll": "CB.SC.U4CSE26357", "m3_name": "Tarun Sanjiv", "m3_roll": "CB.SC.U4CSE26358"},
+{"team_id": "GEN26-A0H-I206", "team_name": "MASC", "tl_name": "Sivasree nandhu binu", "tl_roll": "CB.SC.U4CSE26356", "m1_name": "Augustine PS", "m1_roll": "CB.SC.U4CSE26307", "m2_name": "Chandrasekharan Balajee", "m2_roll": "CB.SC.U4CSE26312", "m3_name": "Madhavan Manikandan", "m3_roll": "CB.SC.U4CSE26634"},
+{"team_id": "GEN26-A0H-I209", "team_name": "insight innovators", "tl_name": "Harshini T", "tl_roll": "CB.SC.U4CSE26416", "m1_name": "R.V.RAKSHITHA", "m1_roll": "CB.SC.U4CSE26444", "m2_name": "RASHMI .E", "m2_roll": "CB.SC.U4CSE26649", "m3_name": "LIBITHA", "m3_roll": "CB.SC.U4CSE26632"},
+{"team_id": "GEN26-A0H-I211", "team_name": "InnoVibe", "tl_name": "Shivani S N", "tl_roll": "CB.SC.U4CSE26456", "m1_name": "Shruti Ramesh", "m1_roll": "CB.SC.U4CSE26458", "m2_name": "Siddhaarthan S", "m2_roll": "CB.SC.U4CSE26459", "m3_name": "Shrisharvesh SV", "m3_roll": "CB.SC.U4CSE26457"},
+{"team_id": "GEN26-A0H-I212", "team_name": "Ctrl Alt Defeat", "tl_name": "Riyaa Chandrasekaran", "tl_roll": "CB.SC.U4CSE26446", "m1_name": "Nikil J A", "m1_roll": "CB.SC.U4CSE26434", "m2_name": "P S Tanish", "m2_roll": "CB.SC.U4CSE26436", "m3_name": "Rithekaa Suresh", "m3_roll": "CB.SC.U4CSE26447"},
+{"team_id": "GEN26-A0H-I213", "team_name": "The Alchemists", "tl_name": "Mucharla Krishna Chaitanya", "tl_roll": "CB.SC.U4CSE26138", "m1_name": "Sadhu Abhinav", "m1_roll": "CB.SC.U4CSE26150", "m2_name": "Achyutha Venkata Manoj", "m2_roll": "CB.SC.U4CSE26104", "m3_name": "Abhiram Rayabaram", "m3_roll": "CB.SC.U4CSE26102"},
+{"team_id": "GEN26-A0H-I216", "team_name": "Power Rangers", "tl_name": "Aditya Pakharia", "tl_roll": "CB.SC.U4CSE26502", "m1_name": "Yeshwanth R", "m1_roll": "CB.SC.U4CSE26566", "m2_name": "Doradla Santosh charan", "m2_roll": "CB.SC.U4CSE26513", "m3_name": "Bongu Sasanth", "m3_roll": "CB.SC.U4CSE26506"},
+{"team_id": "GEN26-A0H-I217", "team_name": "Brute Force", "tl_name": "Vishran S", "tl_roll": "CB.SC.U4CSE26565", "m1_name": "Mohammed Arshad M", "m1_roll": "CB.SC.U4CSE26533", "m2_name": "Jaiyuvan P", "m2_roll": "CB.SC.U4CSE26539", "m3_name": "Harsha Vardhan C", "m3_roll": "CB.SC.U4CSE26211"},
+{"team_id": "GEN26-A0H-I218", "team_name": "Techies", "tl_name": "Rithanya Kamal Kannan", "tl_roll": "CB.SC.U4CSE26545", "m1_name": "R I Samikshaa", "m1_roll": "CB.SC.U4CSE26544", "m2_name": "Malini.K", "m2_roll": "CB.SC.U4CSE26528", "m3_name": "Dharani Sree M S", "m3_roll": "CB.SC.U4CSE26512"},
+{"team_id": "GEN26-A0H-I219", "team_name": "Star Wars", "tl_name": "KeshavareddyGari Tanvesh Reddy", "tl_roll": "CB.SC.U4CSE26522", "m1_name": "Ashwin Saranya Aryan", "m1_roll": "CB.SC.U4CSE26503", "m2_name": "H. Sree Laksh", "m2_roll": "CB.SC.U4CSE26574", "m3_name": "Jonnavittula Surya Kousik", "m3_roll": "CB.SC.U4CSE26517"},
+{"team_id": "GEN26-A0H-I220", "team_name": "Tech Titans", "tl_name": "Abinaya S", "tl_roll": "CB.SC.U4CSE26103", "m1_name": "Silvin Divina S", "m1_roll": "CB.SC.U4CSE26160", "m2_name": "Oviya Sivakumar", "m2_roll": "CB.SC.U4CSE26144", "m3_name": "Nesika T", "m3_roll": "CB.SC.U4CSE26142"},
+{"team_id": "GEN26-A0H-I223", "team_name": "Syntax Terror", "tl_name": "Lakshieth K K", "tl_roll": "CB.SC.U4CSE26134", "m1_name": "Guhannathan B L", "m1_roll": "CB.SC.U4CSE26170", "m2_name": "Dharun", "m2_roll": "CB.SC.U4CSE26118", "m3_name": "Tejesh Satya", "m3_roll": "CB.SC.U4CSE26137"},
+{"team_id": "GEN26-A0H-I227", "team_name": "Onyx", "tl_name": "S R Srineevasan", "tl_roll": "CB.SC.U4CSE26047", "m1_name": "A J Roopeshwar Reddy", "m1_roll": "CB.SC.U4CSE26001", "m2_name": "Venkat Prasath R", "m2_roll": "CB.SC.U4CSE26066", "m3_name": "Shriniketh C", "m3_roll": "CB.SC.U4CSE26052"},
+{"team_id": "GEN26-A0H-I231", "team_name": "TEAM JOTA", "tl_name": "Abishek N", "tl_roll": "CB.SC.U4CSE26005", "m1_name": "Anamika V M", "m1_roll": "CB.SC.U4CSE26007", "m2_name": "Ananya L", "m2_roll": "CB.SC.U4CSE26008", "m3_name": "Eshaan Parihariya", "m3_roll": "CB.SC.U4CSE26021"},
+{"team_id": "GEN26-A0H-I232", "team_name": "Tech Titans", "tl_name": "Arunmozhivarman Poorani", "tl_roll": "CB.SC.U4CSE26012", "m1_name": "Abinaya P", "m1_roll": "CB.SC.U4CSE26004", "m2_name": "Dharshini S", "m2_roll": "CB.SC.U4CSE26018", "m3_name": "Gouri S Retnakaran", "m3_roll": "CB.SC.U4CSE26023"}
+]$genesis$)
+  as s(team_id text, team_name text, tl_name text, tl_roll text,
+       m1_name text, m1_roll text, m2_name text, m2_roll text, m3_name text, m3_roll text)
+where t.team_id = s.team_id
+  and (t.status, t.team_name, t.tl_name, t.tl_roll, t.m1_name, t.m1_roll, t.m2_name, t.m2_roll, t.m3_name, t.m3_roll)
+      is distinct from
+      ('final', s.team_name, s.tl_name, s.tl_roll, s.m1_name, s.m1_roll, s.m2_name, s.m2_roll, s.m3_name, s.m3_roll);
+
+-- 2. Rejected teams
+update public.ideathon_teams set status = 'rejected'
+where status <> 'rejected' and team_id in (
+  'GEN26-A0H-I001',
+  'GEN26-A0H-I009',
+  'GEN26-A0H-I012',
+  'GEN26-A0H-I013',
+  'GEN26-A0H-I015',
+  'GEN26-A0H-I029',
+  'GEN26-A0H-I030',
+  'GEN26-A0H-I040',
+  'GEN26-A0H-I044',
+  'GEN26-A0H-I054',
+  'GEN26-A0H-I059',
+  'GEN26-A0H-I064',
+  'GEN26-A0H-I068',
+  'GEN26-A0H-I073',
+  'GEN26-A0H-I083',
+  'GEN26-A0H-I087',
+  'GEN26-A0H-I094',
+  'GEN26-A0H-I099',
+  'GEN26-A0H-I101',
+  'GEN26-A0H-I102',
+  'GEN26-A0H-I103',
+  'GEN26-A0H-I104',
+  'GEN26-A0H-I106',
+  'GEN26-A0H-I110',
+  'GEN26-A0H-I113',
+  'GEN26-A0H-I116',
+  'GEN26-A0H-I120',
+  'GEN26-A0H-I122',
+  'GEN26-A0H-I135',
+  'GEN26-A0H-I136',
+  'GEN26-A0H-I138',
+  'GEN26-A0H-I145',
+  'GEN26-A0H-I147',
+  'GEN26-A0H-I150',
+  'GEN26-A0H-I152',
+  'GEN26-A0H-I155',
+  'GEN26-A0H-I156',
+  'GEN26-A0H-I158',
+  'GEN26-A0H-I160',
+  'GEN26-A0H-I167',
+  'GEN26-A0H-I170',
+  'GEN26-A0H-I181',
+  'GEN26-A0H-I182',
+  'GEN26-A0H-I185',
+  'GEN26-A0H-I187',
+  'GEN26-A0H-I191',
+  'GEN26-A0H-I193',
+  'GEN26-A0H-I196',
+  'GEN26-A0H-I202',
+  'GEN26-A0H-I207',
+  'GEN26-A0H-I208',
+  'GEN26-A0H-I210',
+  'GEN26-A0H-I214',
+  'GEN26-A0H-I215',
+  'GEN26-A0H-I221',
+  'GEN26-A0H-I222',
+  'GEN26-A0H-I224',
+  'GEN26-A0H-I225',
+  'GEN26-A0H-I226',
+  'GEN26-A0H-I228',
+  'GEN26-A0H-I229',
+  'GEN26-A0H-I230'
+);
+
+update public.ideathon_teams set team_name = 'Nexora'
+where team_id = 'GEN26-A0H-I167' and team_name is distinct from 'Nexora';
+
+update public.ideathon_teams set m3_name = 'Harsh J Dugar', m3_roll = 'CB.EN.U4CIE26070'
+where team_id = 'GEN26-A0H-I044' and m3_roll = 'CB.EN.U4CIE26058';
+
+-- 3. Check the result; an error here undoes everything above
+do $check$
+declare n_final int; n_rej int; n_all int;
+begin
+  select count(*) filter (where status = 'final'), count(*) filter (where status = 'rejected'), count(*)
+    into n_final, n_rej, n_all from public.ideathon_teams;
+  if n_final <> 170 or n_rej <> 62 or n_all <> 232 then
+    raise exception 'Expected 170 final + 62 rejected = 232 teams, found % + % = %. Nothing was saved.', n_final, n_rej, n_all;
+  end if;
+end
+$check$;
+
+commit;
+
+-- Expected result: final 170, rejected 62
+select status, count(*) as teams from public.ideathon_teams group by status order by status;

@@ -32,6 +32,13 @@
   --teal-logo: #20a090;
   --cyan: #00d9ea;
   --mint: #6fd18f;
+  /* final / rejected status */
+  --final: #08675e;
+  --final-bg: #e0f4e7;
+  --final-dot: #2fae6b;
+  --rej: #b42318;
+  --rej-bg: #fdeceb;
+  --rej-muted: #50605e;
   --stripe: linear-gradient(90deg, #103030 0 18%, #005060 18% 36%, #0070a0 36% 54%, #20a090 54% 72%, #00d9ea 72% 86%, #6fd18f 86% 100%);
 
   --f-display: 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif;
@@ -122,6 +129,8 @@ button, input, select { font: inherit; color: inherit; }
 .stats > div:first-child { padding-left: 0; border-left: 0; }
 .stats dt { font: 500 10.5px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--faint); }
 .stats dd { font: 700 clamp(36px, 4.4vw, 48px)/0.9 var(--f-display); color: var(--ink); font-variant-numeric: tabular-nums; }
+.stats .st-final dd { color: var(--teal); }
+.stats .st-rejected dd { color: var(--rej); }
 
 .id-hint {
   margin-top: 26px;
@@ -209,6 +218,28 @@ button, input, select { font: inherit; color: inherit; }
 .seg button:hover { color: var(--ink); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
 
+/* final / rejected filter */
+.filter-row { padding-top: 18px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.filters button {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 8px 0 14px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-sm);
+  font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.filters button:hover { border-color: var(--teal); color: var(--ink); }
+.filters .dot { width: 8px; height: 8px; border-radius: 50%; }
+.filters [data-status="final"] .dot { background: var(--final-dot); }
+.filters [data-status="rejected"] .dot { background: var(--rej); }
+.filters .n {
+  min-width: 30px; padding: 6px 8px; border-radius: 999px; text-align: center;
+  font: 500 11.5px/1 var(--f-mono); color: var(--muted); background: var(--surface-3);
+}
+.filters button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.filters button[aria-pressed="true"] .n { background: rgb(255 255 255 / 0.16); color: #fff; }
+.filter-row:not([hidden]) + .meta-row { padding-top: 12px; }
+
 .meta-row {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px;
   padding-block: 18px 12px;
@@ -233,6 +264,21 @@ button, input, select { font: inherit; color: inherit; }
 }
 .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--line); }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.card-ids { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 9px; border-radius: 999px; white-space: nowrap;
+  font: 500 10.5px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill-final { color: var(--final); background: var(--final-bg); }
+.pill-final::before { background: var(--final-dot); }
+.pill-rejected { color: var(--rej); background: var(--rej-bg); }
+.card.is-rejected { background: #fcfdfd; }
+.card.is-rejected .team-name { color: var(--rej-muted); }
+.card.is-rejected .roster li { background: #f5f7f7; }
+.card.is-rejected .roster li.is-lead { background: #eef2f1; }
+.card.is-rejected .is-lead .role { color: var(--faint); }
 .tid {
   font: 500 12.5px/1 var(--f-mono); color: var(--teal); letter-spacing: -0.01em; white-space: nowrap;
   background: var(--surface-3); padding: 7px 10px; border-radius: 8px;
@@ -283,6 +329,19 @@ mark { background: rgb(0 217 234 / 0.28); color: inherit; border-radius: 3px; pa
 .spot-eyebrow { font: 500 11px/1 var(--f-mono); text-transform: uppercase; letter-spacing: 0.14em; color: var(--teal); }
 .spot-id { margin-top: 12px; font: 500 clamp(20px, 4vw, 32px)/1.1 var(--f-mono); color: var(--ink); letter-spacing: -0.04em; overflow-wrap: anywhere; }
 .spot-name { margin-top: 10px; font: 800 clamp(34px, 6vw, 56px)/0.9 var(--f-display); text-transform: uppercase; color: var(--ink); overflow-wrap: anywhere; text-wrap: balance; }
+.spot.is-rejected .spot-name { color: var(--rej-muted); }
+.spot-status {
+  margin-top: 16px; width: fit-content; max-width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px 8px 8px; border-radius: 12px;
+  font-size: 14.5px; line-height: 1.3;
+}
+.spot-status svg { flex: none; width: 22px; height: 22px; padding: 4px; border-radius: 50%; color: #fff; }
+.spot-status b { font-weight: 700; }
+.spot-status.is-final { background: var(--final-bg); color: var(--final); }
+.spot-status.is-final svg { background: var(--final); }
+.spot-status.is-rejected { background: var(--rej-bg); color: var(--rej); }
+.spot-status.is-rejected svg { background: var(--rej); }
 .btn-copy {
   display: inline-flex; align-items: center; gap: 9px;
   height: 46px; padding: 0 20px;
@@ -315,6 +374,7 @@ tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover td { background: var(--surface-2); }
 td .tid { display: inline-block; font-size: 11.5px; padding: 6px 8px; }
 td.tname { font: 700 17px/1.05 var(--f-display); text-transform: uppercase; letter-spacing: 0.01em; color: var(--ink); min-width: 150px; }
+tr.is-rejected td.tname { color: var(--rej-muted); }
 td .pname { display: block; font-size: 13.5px; }
 td .proll { display: block; margin-top: 2px; }
 td.tcopy { width: 1%; }
@@ -378,6 +438,13 @@ td.tcopy { width: 1%; }
   .seg button { padding: 0 11px; }
   .spot .roster { grid-template-columns: minmax(0, 1fr); }
   .btn-copy { width: 100%; justify-content: center; }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 18px; }
+  .stats > div { padding-inline: 16px; }
+  .stats > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .filters { display: grid; grid-template-columns: auto auto auto; }
+  .filters button { justify-content: center; padding: 0 6px 0 10px; gap: 6px; font-size: 13px; white-space: nowrap; }
+  .filters .long { display: none; }
+  .filters .n { min-width: 0; padding: 5px 6px; }
 }
 @media (max-width: 340px) {
   .roster { grid-template-columns: minmax(0, 1fr); }

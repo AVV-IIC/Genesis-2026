@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Genesis Ideathon Teams</title>
-  <meta name="description" content="Official team directory for Genesis Ideathon 2026. Find your Team ID, team name, team leader and members. IIC, Amrita Vishwa Vidyapeetham, Coimbatore.">
+  <meta name="description" content="Official team directory for Genesis Ideathon 2026. Find your Team ID, check whether your team is in the final list, and see your team leader and members. IIC, Amrita Vishwa Vidyapeetham, Coimbatore.">
   <meta name="theme-color" content="#f2f8f6">
   <link rel="icon" href="img/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Genesis Ideathon Teams">
-  <meta property="og:description" content="Find your official Team ID for Genesis Ideathon 2026.">
-  <meta property="og:url" content="https://rohith-kumar-ss.github.io/genesis-ideathon-teams/">
-  <meta property="og:image" content="https://rohith-kumar-ss.github.io/genesis-ideathon-teams/img/icon-512.png">
+  <meta property="og:description" content="Find your Team ID and check whether your team is in the final list for Genesis Ideathon 2026.">
+  <meta property="og:url" content="https://avv-iic.github.io/Genesis-2026/directory/">
+  <meta property="og:image" content="https://avv-iic.github.io/Genesis-2026/directory/img/icon-512.png">
   <meta name="twitter:card" content="summary">
   <link rel="preload" href="fonts/big-shoulders-display-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/figtree-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -41,11 +41,12 @@
         <div class="hero-copy">
           <p class="eyebrow">Genesis Ideathon 2026 &middot; Official team list</p>
           <h1 id="hero-title"><span>Team</span> <span class="grad">Directory</span></h1>
-          <p class="lead">Look up your Team ID and check your team's details. Search by roll number, name, team name or Team ID.</p>
+          <p class="lead">Look up your Team ID and check whether your team made the final list. Search by roll number, name, team name or Team ID.</p>
           <dl class="stats">
             <div><dt>Teams</dt><dd id="st-teams">&mdash;</dd></div>
+            <div class="st-status st-final" hidden><dt>Final</dt><dd id="st-final">&mdash;</dd></div>
+            <div class="st-status st-rejected" hidden><dt>Rejected</dt><dd id="st-rejected">&mdash;</dd></div>
             <div><dt>Participants</dt><dd id="st-people">&mdash;</dd></div>
-            <div><dt>Per team</dt><dd id="st-size">&mdash;</dd></div>
           </dl>
           <p class="id-hint"><span>Team ID format</span><code>GEN26-A0H-I<em>###</em></code></p>
         </div>
@@ -85,6 +86,14 @@
       </div>
     </div>
 
+    <div class="wrap filter-row" id="filters" hidden>
+      <div class="filters" role="group" aria-label="Show teams">
+        <button type="button" data-status="all" aria-pressed="true">All<span class="long"> teams</span> <span class="n">&mdash;</span></button>
+        <button type="button" data-status="final" aria-pressed="false"><i class="dot" aria-hidden="true"></i>Final <span class="n">&mdash;</span></button>
+        <button type="button" data-status="rejected" aria-pressed="false"><i class="dot" aria-hidden="true"></i>Rejected <span class="n">&mdash;</span></button>
+      </div>
+    </div>
+
     <div class="wrap meta-row">
       <p id="count" aria-live="polite">Loading teams&hellip;</p>
       <p id="updated"></p>
@@ -103,7 +112,7 @@
           <span>Institution's Innovation Council (IIC), Amrita Vishwa Vidyapeetham, Coimbatore</span>
         </div>
       </div>
-      <p class="foot-note">Official list of registered teams.</p>
+      <p class="foot-note">Official team list. Teams not in the final list are marked Rejected.</p>
     </div>
     <div class="stripe" aria-hidden="true"></div>
   </footer>

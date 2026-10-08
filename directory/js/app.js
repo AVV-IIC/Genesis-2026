@@ -1,4 +1,5 @@
-// Genesis Ideathon Teams: loads the team list from Supabase and renders search, cards, table and a single-team spotlight.
+// Genesis Ideathon Teams: loads the team list from Supabase and renders search, a Final/Rejected filter, cards, table
+// and a single-team spotlight. The status column is optional: without it the page shows every team with no badges.
 (() => {
   'use strict';
 
@@ -9,12 +10,15 @@
   const els = {
     q: $('#q'),
     sort: $('#sort'),
+    filters: $('#filters'),
     results: $('#results'),
     count: $('#count'),
     updated: $('#updated'),
     toast: $('#toast'),
   };
-  const state = { teams: [], q: '', sort: 'id', view: 'cards', loaded: false };
+  const STATUSES = ['all', 'final', 'rejected'];
+  const STATUS_LABEL = { final: 'Final', rejected: 'Rejected' };
+  const state = { teams: [], q: '', sort: 'id', view: 'cards', status: 'all', hasStatus: false, loaded: false };
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -45,8 +49,10 @@
     }
     const id = String(r.team_id || '').trim();
     const name = String(r.team_name || '').trim();
+    const st = String(r.status || '').trim().toLowerCase();
+    const status = st === 'final' || st === 'rejected' ? st : null;
     const hay = [id, name, ...people.flatMap((p) => [p.name, p.roll])].map(norm).join('|');
-    return { id, name, people, updated: r.updated_at || null, hay };
+    return { id, name, people, status, updated: r.updated_at || null, hay };
   }
 
   // ---- markup helpers ----
@@ -62,8 +68,10 @@
   }
   const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
   const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  const ICON_CROSS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>';
   const copyBtn = (id) => `<button type="button" class="copy" data-copy="${esc(id)}" aria-label="Copy Team ID ${esc(id)}" title="Copy Team ID">${ICON_COPY}</button>`;
   const teamName = (t, q) => hi(t.name || 'Unnamed team', q);
+  const pill = (t) => t.status ? `<span class="pill pill-${t.status}">${STATUS_LABEL[t.status]}</span>` : '';
 
   function rosterHTML(t, q) {
     return '<ul class="roster">' + t.people.map((p) =>
@@ -73,13 +81,19 @@
     ).join('') + '</ul>';
   }
   function cardHTML(t, q) {
-    return `<article class="card"><div class="card-head"><span class="tid">${hi(t.id, q)}</span>${copyBtn(t.id)}</div>` +
+    return `<article class="card${t.status === 'rejected' ? ' is-rejected' : ''}">` +
+      `<div class="card-head"><div class="card-ids"><span class="tid">${hi(t.id, q)}</span>${pill(t)}</div>${copyBtn(t.id)}</div>` +
       `<h2 class="team-name">${teamName(t, q)}</h2>${rosterHTML(t, q)}</article>`;
   }
+  function spotStatus(t) {
+    if (t.status === 'final') return `<p class="spot-status is-final">${ICON_CHECK}<span><b>Final</b> · this team is in the final list</span></p>`;
+    if (t.status === 'rejected') return `<p class="spot-status is-rejected">${ICON_CROSS}<span><b>Rejected</b> · this team is not in the final list</span></p>`;
+    return '';
+  }
   function spotHTML(t, q) {
-    return `<article class="spot" aria-label="Team ${esc(t.id)}">` +
+    return `<article class="spot${t.status === 'rejected' ? ' is-rejected' : ''}" aria-label="Team ${esc(t.id)}">` +
       `<div class="spot-head"><div><p class="spot-eyebrow">Team found</p><p class="spot-id">${esc(t.id)}</p>` +
-      `<h2 class="spot-name">${teamName(t, q)}</h2></div>` +
+      `<h2 class="spot-name">${teamName(t, q)}</h2>${spotStatus(t)}</div>` +
       `<button type="button" class="btn-copy" data-copy="${esc(t.id)}">${ICON_COPY}<span>Copy Team ID</span></button></div>` +
       `${rosterHTML(t, q)}</article>` +
       '<p class="spot-foot"><button type="button" class="link" data-clear>Show all teams</button></p>';
@@ -88,14 +102,17 @@
     const cell = (p) => p
       ? `<span class="pname">${hi(p.name || '—', q)}</span>` + (p.roll ? `<span class="proll">${hi(p.roll, q)}</span>` : '')
       : '<span class="faint">—</span>';
+    const withStatus = state.hasStatus;
     const rows = list.map((t) => {
       const member = (n) => t.people.find((p) => p.role === `Member ${n}`);
-      return `<tr><td><span class="tid">${hi(t.id, q)}</span></td><td class="tname">${teamName(t, q)}</td>` +
+      return `<tr${t.status === 'rejected' ? ' class="is-rejected"' : ''}><td><span class="tid">${hi(t.id, q)}</span></td>` +
+        (withStatus ? `<td>${pill(t)}</td>` : '') + `<td class="tname">${teamName(t, q)}</td>` +
         `<td>${cell(t.people[0])}</td><td>${cell(member(1))}</td><td>${cell(member(2))}</td><td>${cell(member(3))}</td>` +
         `<td class="tcopy">${copyBtn(t.id)}</td></tr>`;
     }).join('');
     return '<div class="table-wrap"><table><thead><tr>' +
-      '<th scope="col">Team ID</th><th scope="col">Team name</th><th scope="col">Team leader</th>' +
+      '<th scope="col">Team ID</th>' + (withStatus ? '<th scope="col">Status</th>' : '') +
+      '<th scope="col">Team name</th><th scope="col">Team leader</th>' +
       '<th scope="col">Member 1</th><th scope="col">Member 2</th><th scope="col">Member 3</th>' +
       '<th scope="col"><span class="sr-only">Copy</span></th>' +
       `</tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -103,12 +120,27 @@
 
   // ---- filter, sort, render ----
   const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
-  function visible() {
+  function matches() {
     const nq = norm(state.q);
-    const list = nq ? state.teams.filter((t) => t.hay.includes(nq)) : state.teams.slice();
+    return nq ? state.teams.filter((t) => t.hay.includes(nq)) : state.teams.slice();
+  }
+  function visible(found = matches()) {
+    const list = state.hasStatus && state.status !== 'all' ? found.filter((t) => t.status === state.status) : found;
     if (state.sort === 'name') list.sort((a, b) => collator.compare(a.name, b.name) || collator.compare(a.id, b.id));
     else list.sort((a, b) => collator.compare(a.id, b.id));
     return list;
+  }
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function renderFilters(found) {
+    els.filters.hidden = !state.hasStatus;
+    if (!state.hasStatus) return;
+    const n = { all: found.length, final: 0, rejected: 0 };
+    found.forEach((t) => { if (t.status) n[t.status]++; });
+    $$('[data-status]', els.filters).forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.status === state.status));
+      b.querySelector('.n').textContent = n[b.dataset.status].toLocaleString('en-IN');
+    });
   }
 
   function render() {
@@ -121,10 +153,18 @@
       els.results.innerHTML = '<div class="state"><h2>No teams published yet</h2><p>The team list will appear here once it is added.</p></div>';
       return;
     }
-    const list = visible();
+    const found = matches();
+    renderFilters(found);
+    const list = visible(found.slice());
+    const which = state.hasStatus && state.status !== 'all' ? state.status : '';
+    const kind = which ? `${which} ` : '';
     if (!list.length) {
-      els.results.innerHTML = `<div class="state"><h2>No teams found</h2><p>Nothing matches “${esc(shown)}”. Check the spelling, or search by roll number.</p>` +
-        '<button type="button" class="btn-ghost" data-clear>Clear search</button></div>';
+      const elsewhere = found.length - list.length;
+      els.results.innerHTML = elsewhere
+        ? `<div class="state"><h2>No ${kind}teams found</h2><p>No ${kind}team matches “${esc(shown)}”, but ${plural(elsewhere, 'team', 'teams')} in the full list ${elsewhere === 1 ? 'does' : 'do'}.</p>` +
+          '<button type="button" class="btn-ghost" data-status-set="all">Show all teams</button></div>'
+        : `<div class="state"><h2>No teams found</h2><p>Nothing matches “${esc(shown)}”. Check the spelling, or search by roll number.</p>` +
+          '<button type="button" class="btn-ghost" data-clear>Clear search</button></div>';
     } else if (shown && list.length === 1) {
       els.results.innerHTML = spotHTML(list[0], q);
     } else if (state.view === 'table') {
@@ -132,9 +172,11 @@
     } else {
       els.results.innerHTML = `<div class="grid">${list.map((t) => cardHTML(t, q)).join('')}</div>`;
     }
-    els.count.innerHTML = shown
-      ? `<b>${list.length}</b> ${list.length === 1 ? 'team matches' : 'teams match'} “${esc(shown)}”`
-      : `Showing all <b>${total}</b> teams`;
+    if (shown) {
+      els.count.innerHTML = `<b>${list.length}</b> ${kind}${list.length === 1 ? 'team matches' : 'teams match'} “${esc(shown)}”`;
+    } else {
+      els.count.innerHTML = which ? `Showing the <b>${list.length}</b> ${which} teams` : `Showing all <b>${total}</b> teams`;
+    }
   }
 
   const fmtDate = new Intl.DateTimeFormat('en-IN', {
@@ -142,13 +184,13 @@
   });
   function renderStats() {
     const teams = state.teams;
-    const sizes = teams.map((t) => t.people.length);
-    const people = sizes.reduce((a, b) => a + b, 0);
-    const min = Math.min(...sizes);
-    const max = Math.max(...sizes);
-    $('#st-teams').textContent = teams.length.toLocaleString('en-IN');
-    $('#st-people').textContent = people.toLocaleString('en-IN');
-    $('#st-size').textContent = !teams.length ? '—' : min === max ? String(max) : `${min}–${max}`;
+    const people = teams.reduce((a, t) => a + t.people.length, 0);
+    const fmt = (n) => n.toLocaleString('en-IN');
+    $('#st-teams').textContent = fmt(teams.length);
+    $('#st-people').textContent = fmt(people);
+    $$('.st-status').forEach((el) => { el.hidden = !state.hasStatus; });
+    $('#st-final').textContent = fmt(teams.filter((t) => t.status === 'final').length);
+    $('#st-rejected').textContent = fmt(teams.filter((t) => t.status === 'rejected').length);
     const latest = teams.map((t) => t.updated).filter(Boolean).sort().pop();
     const d = latest ? new Date(latest) : null;
     els.updated.textContent = d && !Number.isNaN(d.getTime()) ? `Updated ${fmtDate.format(d)} IST` : '';
@@ -164,16 +206,17 @@
       '<button type="button" class="btn-ghost" data-retry>Try again</button></div>';
   }
 
-  const COLS = 'team_id,team_name,tl_name,tl_roll,m1_name,m1_roll,m2_name,m2_roll,m3_name,m3_roll,updated_at';
   async function load() {
     skeleton();
     els.count.textContent = 'Loading teams…';
     try {
-      const url = `${cfg.supabaseUrl}/rest/v1/${cfg.table}?select=${COLS}&order=team_id.asc`;
+      // select=* so the page works whether or not the table has the status column yet
+      const url = `${cfg.supabaseUrl}/rest/v1/${cfg.table}?select=*&order=team_id.asc`;
       const res = await fetch(url, { headers: { apikey: cfg.supabaseKey }, cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const rows = await res.json();
       state.teams = rows.map(toTeam).filter((t) => t.id);
+      state.hasStatus = state.teams.some((t) => t.status);
       state.loaded = true;
       renderStats();
       render();
@@ -223,8 +266,17 @@
   // ---- events ----
   let urlTimer;
   function syncURL() {
+    const p = new URLSearchParams();
     const q = state.q.trim();
-    try { history.replaceState(null, '', q ? `${location.pathname}?q=${encodeURIComponent(q)}` : location.pathname); } catch { /* ignore */ }
+    if (q) p.set('q', q);
+    if (state.status !== 'all') p.set('status', state.status);
+    const qs = p.toString();
+    try { history.replaceState(null, '', qs ? `${location.pathname}?${qs}` : location.pathname); } catch { /* ignore */ }
+  }
+  function setStatus(v) {
+    state.status = STATUSES.includes(v) ? v : 'all';
+    render();
+    syncURL();
   }
   function setQuery(v) {
     els.q.value = v;
@@ -247,9 +299,12 @@
     render();
   });
   $$('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+  $$('[data-status]', els.filters).forEach((b) => b.addEventListener('click', () => setStatus(b.dataset.status)));
   els.results.addEventListener('click', (e) => {
     const c = e.target.closest('[data-copy]');
     if (c) { copyId(c.dataset.copy, c); return; }
+    const s = e.target.closest('[data-status-set]');
+    if (s) { setStatus(s.dataset.statusSet); return; }
     if (e.target.closest('[data-clear]')) { setQuery(''); els.q.focus(); return; }
     if (e.target.closest('[data-retry]')) load();
   });
@@ -263,8 +318,10 @@
   });
 
   // ---- start ----
-  const q0 = new URLSearchParams(location.search).get('q');
+  const params = new URLSearchParams(location.search);
+  const q0 = params.get('q');
   if (q0) { els.q.value = q0; state.q = q0; }
+  if (STATUSES.includes(params.get('status'))) state.status = params.get('status');
   const savedSort = store.get('gi-sort');
   if (savedSort === 'id' || savedSort === 'name') { state.sort = savedSort; els.sort.value = savedSort; }
   setView(store.get('gi-view') || 'cards');
