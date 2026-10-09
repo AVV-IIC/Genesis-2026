@@ -1,4 +1,13 @@
-import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, COMP_LABEL } from '../core.js';
+import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, clock, fmtDateTime, COMP_LABEL } from '../core.js';
+
+/** Where the event clock stands: unset (never started), running, or ended. */
+export function clockState(s) {
+  const start = s.event_start ? Date.parse(s.event_start) : NaN;
+  const end = s.event_end ? Date.parse(s.event_end) : NaN;
+  const now = clock.now();
+  if (!(start <= now)) return 'unset'; // also covers an old start time set in the future
+  return now < end ? 'running' : 'ended';
+}
 
 const RESET = {
   hackathon: {
@@ -10,6 +19,13 @@ const RESET = {
     everything: ['Delete teams & all Ideathon data', 'This deletes every Ideathon team, idea, result, announcement, help request and schedule item. Settings and organiser accounts are kept. The Hackathon is not touched.', 'All Ideathon data deleted.'],
   },
 };
+
+function clockLine(s) {
+  const st = clockState(s);
+  if (st === 'running') return `Running since ${fmtDateTime(s.event_start)} · ends ${fmtDateTime(s.event_end)}.`;
+  if (st === 'ended') return `Finished at ${fmtDateTime(s.event_end)}.`;
+  return 'Not started. Press Start on the dashboard to begin the 24 hours.';
+}
 
 export async function render(ctx, params, seq) {
   const [{ settings: s }, { admins, me }] = await Promise.all([api('/admin/settings'), api('/admin/admins')]);
@@ -30,11 +46,7 @@ export async function render(ctx, params, seq) {
         <label class="field"><span>Event name</span><input class="input" name="event_name" id="st-name" value="${s.event_name}" maxlength="80" required></label>
         <label class="field"><span>Tagline <span class="hint">Shown on the sign-in page</span></span><input class="input" name="tagline" id="st-tagline" value="${s.tagline}" maxlength="160"></label>
         <label class="field"><span>Venue</span><input class="input" name="venue" id="st-venue" value="${s.venue}" maxlength="160" placeholder="e.g. Main Auditorium, ABC College"></label>
-        <div class="form-grid">
-          <label class="field"><span>${label} starts</span><input class="input" type="datetime-local" name="event_start" id="st-start" value="${toLocalInput(s.event_start)}"></label>
-          <label class="field"><span>${label} ends</span><input class="input" type="datetime-local" name="event_end" id="st-end" value="${toLocalInput(s.event_end)}"></label>
-        </div>
-        <p class="small faint" style="margin-top:-6px">Times are in this device’s time zone. The countdown dial runs from start to end.</p>
+        <p class="small faint" style="margin-top:-6px">The 24-hour clock starts when an organiser presses <strong>Start</strong> on the dashboard.</p>
         ${ideathon
           ? html`<label class="field"><span>Idea submission deadline <span class="hint">Optional. Teams can’t edit their idea after this</span></span><input class="input" type="datetime-local" name="submission_deadline" id="st-deadline" value="${toLocalInput(s.submission_deadline)}" style="max-width:280px"></label>`
           : ''}
@@ -58,6 +70,10 @@ export async function render(ctx, params, seq) {
               <h2 class="section-title" style="margin-bottom:4px">Idea submission</h2>
               ${toggle('submissions_enabled', 'Collect ideas through the portal', 'Teams get a “My idea” page to describe their idea and share links. Turn off if you don’t need it.')}
               ${s.submissions_enabled === '1' ? toggle('submissions_open', 'Accepting submissions', 'Off locks every idea, e.g. before the event starts or once judging begins.') : ''}
+            </section>
+            <section class="card">
+              <h2 class="section-title" style="margin-bottom:4px">Design Thinking</h2>
+              ${toggle('design_thinking_enabled', 'Design Thinking page', 'Teams get a page for the 4-5-3 method: 4 members develop a base idea for about 5 minutes each, passing ideas along over 3 iterations, which gives 12 ideas. Off hides the page.')}
             </section>`
           : ''}
 
@@ -90,7 +106,14 @@ export async function render(ctx, params, seq) {
             : 'Download a backup before and after each round. It holds every Hackathon team, judge, score, decision, note, announcement and help request (never passwords).'}</p>
           <hr class="divider">
           <h3 style="font-size:15px;margin-bottom:4px;color:var(--bad)">Danger zone</h3>
-          <p class="small muted" style="margin-bottom:12px">Use this to clear test data before the event starts.</p>
+          <div class="clock-zone">
+            <p><strong>Event clock</strong><br><span class="small muted">${clockLine(s)}</span></p>
+            <div class="row">
+              ${clockState(s) === 'running' ? html`<button type="button" class="btn btn-sm btn-danger" data-clock="stop">${icon('x')}Stop the clock</button>` : ''}
+              ${clockState(s) !== 'unset' ? html`<button type="button" class="btn btn-sm btn-danger" data-clock="reset">${icon('refresh')}Reset the clock</button>` : ''}
+            </div>
+          </div>
+          <p class="small muted" style="margin-bottom:12px">Use these to clear test data before the event starts.</p>
           <div class="row">
             <button type="button" class="btn btn-sm btn-danger" data-reset="scores">${RESET[comp].scores[0]}</button>
             <button type="button" class="btn btn-sm btn-danger" data-reset="everything">${RESET[comp].everything[0]}</button>
@@ -106,8 +129,6 @@ export async function render(ctx, params, seq) {
     const err = $('.form-error', form);
     err.textContent = '';
     const v = Object.fromEntries(new FormData(form));
-    v.event_start = fromLocalInput(v.event_start);
-    v.event_end = fromLocalInput(v.event_end);
     if ('submission_deadline' in v) v.submission_deadline = fromLocalInput(v.submission_deadline);
     await withBusy($('button[type=submit]', form), async () => {
       try {
@@ -188,6 +209,30 @@ export async function render(ctx, params, seq) {
       } catch (err) {
         toastError(err);
       }
+    })
+  );
+
+  $$('[data-clock]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const stop = b.dataset.clock === 'stop';
+      const word = stop ? 'STOP' : 'RESET';
+      formModal({
+        title: stop ? 'Stop the event clock' : 'Reset the event clock',
+        submitLabel: stop ? 'Stop the clock' : 'Reset the clock',
+        danger: true,
+        content: html`
+          <p class="muted">${stop
+            ? `The ${label} countdown ends now on every screen, and teams see “Time’s up”. To run it again you’d have to reset the clock and press Start, which begins a fresh 24 hours.`
+            : `The ${label} clock goes back to “Not started” and teams stop seeing a countdown. The Start button comes back on the dashboard; pressing it begins a fresh 24 hours.`}</p>
+          <label class="field"><span>Type ${word} to confirm</span><input class="input mono" name="confirm" autocomplete="off" required></label>`,
+        async onSubmit(v) {
+          if (v.confirm !== word) throw new Error(`Type ${word} in capitals to confirm.`);
+          await api('/admin/clock', { method: 'POST', body: { action: b.dataset.clock, confirm: v.confirm } });
+          toast(stop ? 'The clock is stopped.' : 'The clock is reset. Press Start on the dashboard when you’re ready.', 'ok');
+          await ctx.refreshMeta();
+          ctx.rerender();
+        },
+      });
     })
   );
 

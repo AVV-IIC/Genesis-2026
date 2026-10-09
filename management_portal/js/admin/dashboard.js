@@ -1,9 +1,10 @@
-import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL } from '../core.js';
+import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, confirmDialog, toast, toastError, withBusy, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, COMP_LABEL } from '../core.js';
 import { mountDial, eventRangeText } from '../dial.js';
 import { chip, empty } from './shared.js';
 import { openComposer } from './announcements.js';
+import { clockState } from './settings.js';
 
-export const live = ['teams', 'rounds', 'results', 'announcement', 'announcements', 'ticket', 'settings', 'schedule', 'judges', 'submission'];
+export const live = ['teams', 'rounds', 'results', 'announcement', 'announcements', 'ticket', 'settings', 'schedule', 'judges', 'submission', 'design'];
 
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
@@ -12,7 +13,8 @@ export async function render(ctx, params, seq) {
   if (!ctx.isCurrent(seq)) return;
   const s = d.stats;
   const ideathon = d.competition === 'ideathon';
-  const noTime = !d.settings.event_start || !d.settings.event_end;
+  const label = COMP_LABEL[d.competition];
+  const clockNow = clockState(d.settings);
 
   setHTML(
     ctx.main,
@@ -29,7 +31,15 @@ export async function render(ctx, params, seq) {
       </div>
     </div>
 
-    ${noTime ? html`<div class="callout callout-warn" style="margin-bottom:18px">${icon('clock')}<span>The event clock isn’t set. <a href="#/settings">Add the start and end time in Settings</a> so teams see the countdown.</span></div>` : ''}
+    ${clockNow === 'unset'
+      ? html`<section class="card start-card">
+          <div><h2 class="section-title">Ready to begin?</h2>
+            <p class="muted">Press Start when the ${label} begins. Every team’s 24-hour countdown starts at the same moment.</p></div>
+          <button type="button" class="btn btn-primary btn-start" id="d-start">${icon('clock')}Start the ${label}</button>
+        </section>`
+      : clockNow === 'ended'
+        ? html`<div class="callout" style="margin-bottom:18px">${icon('info')}<span>The ${label} clock has finished. To run it again, reset it in <a href="#/settings">Settings → Danger zone</a>.</span></div>`
+        : ''}
 
     <div class="hero-grid">
       <section class="card hero-dial"><div data-dial></div><p class="event-line">${d.settings.venue || 'Venue not set'}</p></section>
@@ -76,6 +86,25 @@ export async function render(ctx, params, seq) {
   );
   mountDial($('[data-dial]', ctx.main));
   $('#d-announce').addEventListener('click', () => openComposer(ctx));
+  $('#d-start')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const ok = await confirmDialog({
+      title: `Start the ${label} now?`,
+      message: `The 24-hour countdown starts right now on every team’s screen. Only Settings → Danger zone can stop or reset it.`,
+      confirmLabel: 'Start now',
+    });
+    if (!ok) return;
+    await withBusy(btn, async () => {
+      try {
+        await api('/admin/clock', { method: 'POST', body: { action: 'start' } });
+        toast(`The ${label} has started. The 24-hour clock is running.`, 'ok');
+        await ctx.refreshMeta();
+        ctx.rerender();
+      } catch (err) {
+        toastError(err);
+      }
+    });
+  });
 }
 
 function roundsCard(d) {
@@ -112,6 +141,7 @@ function judgingCard(d) {
 
 function ideathonCard(d) {
   const st = d.ideathon.state;
+  const dt = d.ideathon.design;
   const subLine = !st.enabled
     ? 'Turned off. Teams just work through the 24 hours.'
     : st.open
@@ -122,6 +152,10 @@ function ideathonCard(d) {
     <ul class="list-plain">
       <li><span><strong>Idea submissions</strong><br><small class="faint">${subLine}</small></span>
         <span class="row">${!st.enabled ? chip('upcoming', 'Off') : st.open ? chip('live', 'Open') : chip('completed', 'Closed')}${st.enabled ? html`<a class="btn btn-ghost btn-sm" href="#/submissions">${d.ideathon.submissions} in</a>` : ''}</span></li>
+      ${dt ? html`<li><span><strong>Design Thinking</strong><br><small class="faint">${dt.enabled
+          ? `${dt.started} of ${dt.teams} teams started · ${dt.complete} have all 12 ideas`
+          : 'Page hidden from teams. Turn it on in Settings.'}</small></span>
+        <span class="row">${dt.enabled ? chip('live', 'On') : chip('upcoming', 'Off')}<a class="btn btn-ghost btn-sm" href="#/design">Open</a></span></li>` : ''}
       <li><span><strong>Results</strong><br><small class="faint">${d.ideathon.results_published ? 'Teams can see their awards and notes.' : 'Hidden from teams until you publish.'}</small></span>
         <span class="row">${d.ideathon.results_published ? chip('selected', 'Published') : chip('upcoming', 'Hidden')}<a class="btn btn-ghost btn-sm" href="#/results">Open</a></span></li>
     </ul>

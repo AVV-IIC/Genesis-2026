@@ -28,7 +28,7 @@ function fields(a = {}, teams = teamsCache, idp = '') {
     <div class="form-grid">
       <div class="field"><span>Priority</span>
         <div class="seg" role="radiogroup" aria-label="Priority" data-priority>
-          ${['normal', 'important', 'urgent'].map((p) => html`<button type="button" data-p="${p}" aria-pressed="${p === priority}">${PRIORITY_LABEL[p]}</button>`)}
+          ${['normal', 'important', 'urgent'].map((p) => html`<button type="button" data-p="${p}" aria-pressed="${String(p === priority)}">${PRIORITY_LABEL[p]}</button>`)}
         </div>
         <input type="hidden" name="priority" value="${priority}">
         <span class="hint">Urgent shows a red banner on everyone’s screen.</span>

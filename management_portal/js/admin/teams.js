@@ -48,7 +48,7 @@ export async function render(ctx, params, seq) {
       <label class="search"><span class="sr-only">Search teams</span>${icon('search')}<input class="input" id="t-search" type="search" placeholder="Search name, ID, leader, track" value="${state.q}"></label>
       <div class="seg" role="group" aria-label="Filter teams">
         ${filters().map(
-          ([k, label]) => html`<button type="button" data-filter="${k}" aria-pressed="${state.filter === k}">${label} <span class="faint">${counts[k]}</span></button>`
+          ([k, label]) => html`<button type="button" data-filter="${k}" aria-pressed="${String(state.filter === k)}">${label} <span class="faint">${counts[k]}</span></button>`
         )}
       </div>
       <span class="grow"></span>

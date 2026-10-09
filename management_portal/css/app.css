@@ -778,6 +778,40 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .idea-sum { display: grid; gap: 3px; min-width: 0; }
 .idea-sum strong { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
 .idea-sum small { color: var(--faint); font-size: 12.5px; }
+
+/* ---------- event clock: Start (dashboard), Stop / Reset (Settings → Danger zone) ---------- */
+.start-card { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; margin-bottom: 18px; border-color: var(--teal-logo); background: linear-gradient(135deg, #effaf5, var(--surface) 60%); }
+.start-card p { margin-top: 4px; max-width: 60ch; }
+.btn-start { font-size: 16px; padding: 12px 22px; }
+.clock-zone { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin: 10px 0 14px; padding: 12px 14px; border: 1px dashed #e7b4ae; border-radius: 10px; background: #fff8f7; }
+
+/* ---------- Design Thinking (4-5-3) ---------- */
+.dt-rules-card summary { cursor: pointer; }
+.dt-rules { margin: 12px 0 0; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+.dt-rules li strong { color: var(--text); margin-right: 6px; }
+.dt-base { margin: 16px 0; }
+.dt-iter-head { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.dt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+.dt-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dt-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.dt-who { font-weight: 700; color: var(--brand-ink); overflow-wrap: anywhere; }
+.dt-prev { padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line-soft); font-size: 14px; overflow-wrap: anywhere; max-height: 180px; overflow: auto; }
+.dt-prev .label, .dt-base-view .label { display: block; margin-bottom: 4px; color: var(--teal); }
+.dt-state { min-height: 1.2em; }
+.dt-state[data-kind='ok'] { color: var(--ok); }
+.dt-state[data-kind='error'] { color: var(--bad); }
+.dt-base-view { padding: 12px 14px; margin-bottom: 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.dt-chains { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.dt-chain { padding: 12px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface); min-width: 0; }
+.dt-chain-head { margin: 0 0 8px; font-size: 14px; }
+.dt-chain-head span { font-weight: 400; font-size: 12px; color: var(--muted); }
+.dt-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.dt-steps li { padding: 8px 10px; border-left: 3px solid var(--teal-logo); border-radius: 0 8px 8px 0; background: var(--surface-2); font-size: 14px; overflow-wrap: anywhere; }
+.dt-steps li.is-empty { border-left-color: var(--line); }
+.dt-step-meta { display: block; margin-bottom: 2px; font-size: 12px; color: var(--muted); }
+.dt-sum-side { gap: 10px; }
+.dt-meter { display: inline-flex; align-items: center; gap: 8px; }
+.dt-meter .progress { width: 80px; }
 .feedback { display: grid; gap: 10px; }
 .fb { padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-soft); }
 .fb strong { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--teal); margin-bottom: 2px; }

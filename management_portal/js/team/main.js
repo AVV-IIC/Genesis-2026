@@ -5,9 +5,10 @@ import {
 } from '../core.js';
 import { setEventTimes, mountDial, eventRangeText, fmtDuration, phase } from '../dial.js';
 import { chip, empty, annItem, timeline, urgentBar } from '../portal.js';
+import { roster, writer, sheetFor, cells, cellKey, filled, countFilled, chainsHTML, RULES, SHEETS, ITERATIONS, TOTAL, MAX_TEXT } from '../design.js';
 
 const main = $('#main');
-const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null };
+const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null, dtIteration: null, dtAll: false };
 
 guardPage('team');
 setHTML($('#mark'), MARK);
@@ -35,6 +36,7 @@ function renderChrome() {
   const tabs = [
     ['overview', 'Overview'],
     ideathon ? null : ['scorecard', 'Scorecard'],
+    ideathon && d.design && d.design.enabled ? ['design', 'Design Thinking'] : null,
     ideathon && d.submission.enabled ? ['idea', 'My idea'] : null,
     ['announcements', 'Announcements', d.unread],
     ['schedule', 'Schedule'],
@@ -178,7 +180,7 @@ const VIEWS = {
       <div class="hero-grid">
         <section class="card hero-dial" aria-label="Event clock">
           <div data-dial></div>
-          <p class="event-line">${eventRangeText() || 'The organisers will publish the event timing soon.'}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
+          <p class="event-line">${eventRangeText() || 'The 24-hour clock starts when the organisers press Start.'}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
         </section>
         <section class="card standing${app.reveal ? ' reveal' : ''}" data-kind="${s.kind}" aria-live="polite">
           <div class="standing-meta">
@@ -194,7 +196,7 @@ const VIEWS = {
             ${s.countdown ? html`<p class="deadline-line">${icon('clock')}<span>Submissions close in <b class="mono" data-countdown="${s.countdown}"></b></span></p>` : ''}
           </div>
           <ol class="path" style="--n:${steps.length}" aria-label="${ideathon ? 'Your progress' : 'Round progress'}">${steps}</ol>
-          <div class="row">${ideathon
+          <div class="row">${ideathon && d.design && d.design.enabled ? html`<a class="btn" href="#/design">${icon('sparkle')}Design Thinking</a>` : ''}${ideathon
             ? d.submission.enabled
               ? html`<a class="btn${d.submission.mine || !d.submission.open ? '' : ' btn-primary'}" href="#/idea">${icon('bulb')}${d.submission.mine ? 'View my idea' : d.submission.open ? 'Submit your idea' : 'My idea'}</a>`
               : html`<a class="btn" href="#/announcements">${icon('megaphone')}Announcements</a>`
@@ -307,6 +309,51 @@ const VIEWS = {
         }
       });
     });
+  },
+
+  async design(params, seq) {
+    const dt = await api('/team/design');
+    if (seq !== app.seq) return;
+    if (!dt.enabled) {
+      setHTML(main, html`<div class="card">${empty('Design Thinking is off', 'The organisers haven’t opened the Design Thinking page right now. Watch the announcements.')}</div>`);
+      return;
+    }
+    app.dt = dt;
+    const names = dtNames();
+    const map = cells(dt.ideas);
+    // Start on the first iteration that still has empty boxes.
+    if (!app.dtIteration) app.dtIteration = dtRange(ITERATIONS).find((i) => dtRange(SHEETS).some((s) => !filled(map.get(cellKey(i, s))))) || 1;
+    const it = app.dtIteration;
+    setHTML(
+      main,
+      html`
+      <div class="page-head">
+        <div><h1 class="page-title">Design Thinking</h1><p>The 4-5-3 method: 4 members, about 5 minutes each, 3 iterations, 12 ideas. Everything saves as you type.</p></div>
+        <div class="row"><span data-dt-total>${dtTotalChip(dt)}</span></div>
+      </div>
+      <details class="card dt-rules-card" ${dt.filled ? '' : 'open'}>
+        <summary><strong>How it works</strong></summary>
+        <ol class="dt-rules">${RULES.map(([t, text]) => html`<li><strong>${t}</strong><span>${text}</span></li>`)}</ol>
+      </details>
+      <section class="card stack-sm dt-base">
+        <label class="field"><span>Base idea <span class="hint">Your team’s starting idea</span></span>
+          <textarea class="textarea" id="dt-base" data-dt="base" rows="3" maxlength="${MAX_TEXT}" placeholder="One or two sentences the whole team agrees on">${dt.base_idea}</textarea></label>
+        <p class="small muted dt-state" data-state="base">${dt.base_idea ? 'Saved' : ''}</p>
+      </section>
+      <div class="dt-iter-head">
+        <div class="seg" role="group" aria-label="Iteration">
+          ${dtRange(ITERATIONS).map((i) => html`<button type="button" data-iter="${i}" aria-pressed="${String(!app.dtAll && it === i)}">Iteration ${i} <span class="faint" data-iter-count="${i}">${dtCount(map, i)}/${SHEETS}</span></button>`)}
+          <button type="button" data-iter="all" aria-pressed="${String(app.dtAll)}">All 12 ideas</button>
+        </div>
+        <p class="small muted">${app.dtAll
+          ? 'Each sheet passes to the next member every iteration.'
+          : it === 1 ? 'Everyone develops the base idea, each in their own box. About 5 minutes.' : `Pass it along: build on the idea shown above your box. About 5 minutes.`}</p>
+      </div>
+      ${app.dtAll
+        ? html`<section class="card" data-dt-all>${chainsHTML(dt, names)}</section>`
+        : html`<div class="dt-grid">${dtRange(SHEETS).map((m) => dtCard(m, it, names, map, dt))}</div>`}`
+    );
+    bindDesign();
   },
 
   scorecard() {
@@ -465,6 +512,148 @@ const VIEWS = {
   },
 };
 
+// ---------- Design Thinking (4-5-3) helpers ----------------------------------------------------
+const dtRange = (n) => Array.from({ length: n }, (_, k) => k + 1);
+const dtNames = () => roster(app.data.team.leader_name, app.data.team.members);
+const dtCount = (map, i) => dtRange(SHEETS).filter((s) => filled(map.get(cellKey(i, s)))).length;
+const dtTotalChip = (dt) => chip(dt.filled >= TOTAL ? 'selected' : 'pending', `${dt.filled}/${TOTAL} ideas`);
+
+/** What member m builds on in iteration i: the base idea, or the previous member's idea on the same sheet. */
+function dtSource(member, iteration, names, map, dt) {
+  if (iteration === 1) {
+    return dt.base_idea
+      ? html`<span class="label">Base idea</span><div>${richText(dt.base_idea)}</div>`
+      : html`<span class="label">Base idea</span><p class="faint small">Write the base idea above first.</p>`;
+  }
+  const sheet = sheetFor(member, iteration);
+  const prev = map.get(cellKey(iteration - 1, sheet));
+  const by = names[writer(sheet, iteration - 1) - 1];
+  return filled(prev)
+    ? html`<span class="label">Build on ${by}’s idea</span><div>${richText(prev.body)}</div>`
+    : html`<span class="label">Build on ${by}’s idea</span><p class="faint small">${by} hasn’t written it yet (iteration ${iteration - 1}).</p>`;
+}
+
+function dtCard(member, iteration, names, map, dt) {
+  const sheet = sheetFor(member, iteration);
+  const x = map.get(cellKey(iteration, sheet));
+  const key = `${iteration}-${sheet}`;
+  return html`<section class="card dt-card">
+    <div class="dt-card-head"><span class="dt-who">${names[member - 1]}</span><span class="small faint">Sheet ${sheet} · iteration ${iteration}</span></div>
+    <div class="dt-prev" data-prev="${member}">${dtSource(member, iteration, names, map, dt)}</div>
+    <label class="field"><span class="sr-only">${names[member - 1]}’s idea for iteration ${iteration}</span>
+      <textarea class="textarea" id="dt-${key}" data-dt="${key}" rows="5" maxlength="${MAX_TEXT}" placeholder="${names[member - 1]}, write your idea here">${x ? x.body : ''}</textarea></label>
+    <p class="small muted dt-state" data-state="${key}">${filled(x) ? `Saved ${timeAgo(x.updated_at)}` : ''}</p>
+  </section>`;
+}
+
+// Autosave: each box saves on its own (so 4 people on 4 phones don't overwrite each other),
+// a moment after typing stops and when the box loses focus.
+const dtTimers = new Map();
+const dtSending = new Map();
+const dtField = (key) => document.getElementById(key === 'base' ? 'dt-base' : `dt-${key}`);
+function dtState(key, text, kind = '') {
+  const el = $(`[data-state="${key}"]`, main);
+  if (!el) return;
+  el.textContent = text;
+  if (kind) el.dataset.kind = kind;
+  else delete el.dataset.kind;
+}
+
+function dtSave(key) {
+  clearTimeout(dtTimers.get(key));
+  dtTimers.delete(key);
+  const el = dtField(key);
+  if (!el || el.value === el.defaultValue) return Promise.resolve();
+  if (dtSending.has(key)) return dtSending.get(key).then(() => dtSave(key));
+  const value = el.value;
+  dtState(key, 'Saving…');
+  const run = (async () => {
+    try {
+      if (key === 'base') await api('/team/design/base', { method: 'PUT', body: { base_idea: value } });
+      else {
+        const [i, s] = key.split('-');
+        await api(`/team/design/ideas/${i}/${s}`, { method: 'PUT', body: { body: value } });
+      }
+      const cur = dtField(key);
+      if (cur && cur.value === value) {
+        cur.defaultValue = value; // clean again: fresh server data may replace it
+        dtState(key, value.trim() ? 'Saved' : 'Cleared', 'ok');
+      } else if (cur) {
+        dtTimers.set(key, setTimeout(() => dtSave(key), 600));
+      }
+      designRefresh();
+    } catch (err) {
+      dtState(key, `Not saved: ${err.message || 'check your connection'}`, 'error');
+    } finally {
+      dtSending.delete(key);
+    }
+  })();
+  dtSending.set(key, run);
+  return run;
+}
+const dtFlush = () => Promise.all([...new Set([...dtTimers.keys(), ...$$('textarea[data-dt]', main).filter((el) => el.value !== el.defaultValue).map((el) => el.dataset.dt)])].map(dtSave));
+
+function bindDesign() {
+  for (const el of $$('textarea[data-dt]', main)) {
+    const key = el.dataset.dt;
+    el.addEventListener('input', () => {
+      dtState(key, 'Not saved yet');
+      clearTimeout(dtTimers.get(key));
+      dtTimers.set(key, setTimeout(() => dtSave(key), 1500));
+    });
+    el.addEventListener('blur', () => dtSave(key));
+  }
+  for (const b of $$('[data-iter]', main)) {
+    b.addEventListener('click', async () => {
+      await dtFlush();
+      app.dtAll = b.dataset.iter === 'all';
+      if (!app.dtAll) app.dtIteration = Number(b.dataset.iter);
+      render();
+    });
+  }
+}
+
+/** Fresh data from teammates' devices, without touching a box someone is typing in. */
+const designRefresh = debounce(async () => {
+  if (app.view !== 'design') return;
+  let dt;
+  try {
+    dt = await api('/team/design');
+  } catch {
+    return;
+  }
+  if (app.view !== 'design') return;
+  if (!dt.enabled) return refresh();
+  app.dt = dt;
+  const names = dtNames();
+  const map = cells(dt.ideas);
+  for (const el of $$('textarea[data-dt]', main)) {
+    const key = el.dataset.dt;
+    const [i, s] = key.split('-').map(Number);
+    const server = key === 'base' ? dt.base_idea : (map.get(cellKey(i, s)) || {}).body || '';
+    const busy = document.activeElement === el || el.value !== el.defaultValue || dtTimers.has(key) || dtSending.has(key);
+    if (!busy && el.value !== server) {
+      el.value = server;
+      el.defaultValue = server;
+      dtState(key, server ? 'Updated from a teammate' : '');
+    }
+  }
+  for (const box of $$('[data-prev]', main)) setHTML(box, dtSource(Number(box.dataset.prev), app.dtIteration, names, map, dt));
+  for (const n of $$('[data-iter-count]', main)) n.textContent = `${dtCount(map, Number(n.dataset.iterCount))}/${SHEETS}`;
+  const total = $('[data-dt-total]', main);
+  if (total) setHTML(total, dtTotalChip(dt));
+  const all = $('[data-dt-all]', main);
+  if (all) setHTML(all, chainsHTML(dt, names));
+}, 400);
+
+// Saves aren't broadcast on the static site, so an open Design Thinking page checks for teammates' ideas.
+setInterval(() => { if (app.view === 'design' && document.visibilityState === 'visible') designRefresh(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if (app.view !== 'design') return;
+  if (document.visibilityState === 'hidden') dtFlush();
+  else designRefresh();
+});
+
 function roundCard(r) {
   const head = html`<div><div class="round-no">Round ${r.number}${r.is_elimination ? '' : ' · no eliminations'}</div><h2 class="round-name">${r.name}</h2></div>`;
   if (!r.reached) {
@@ -590,6 +779,7 @@ async function render() {
     leaderboard: ideathon || !d.event.leaderboard_visible,
     scorecard: ideathon,
     idea: !ideathon || !d.submission.enabled,
+    design: !ideathon || !(d.design && d.design.enabled),
   };
   if (hidden[view]) {
     location.hash = '#/overview';
@@ -609,16 +799,24 @@ async function render() {
   }
 }
 
+// Redraw the current view with fresh data. The Design Thinking page only pulls teammates' changes,
+// so a box someone is typing in is never replaced (that would close the keyboard on phones).
+async function redraw() {
+  if (app.view === 'design' && app.data.design && app.data.design.enabled) return designRefresh();
+  await preserveInputs(main, render);
+}
+
 const refresh = debounce(async () => {
   try {
     await loadCore();
-    await preserveInputs(main, render);
+    await redraw();
   } catch (err) {
     toastError(err);
   }
 }, 250);
 
 function onRoute(view, params) {
+  if (app.view === 'design' && view !== 'design') dtFlush(); // save what was typed before the boxes go away
   const changed = view !== app.view;
   app.view = view;
   app.params = params;
@@ -649,7 +847,7 @@ function onRoute(view, params) {
         // Live signals from the database carry no text; fetch the announcement.
         try {
           await loadCore();
-          await preserveInputs(main, render);
+          await redraw();
           const list = app.data.announcements || [];
           const latest = list.find((x) => x.id === a.id) || list[0];
           show(latest ? latest.title : 'Open Announcements to read it.');
@@ -666,6 +864,7 @@ function onRoute(view, params) {
         refresh();
       },
       rounds: refresh,
+      design: designRefresh,
       schedule: refresh,
       settings: refresh,
       profile: refresh,

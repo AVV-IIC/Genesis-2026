@@ -30,8 +30,8 @@ export async function render(ctx, params, seq) {
     <div class="toolbar">
       <label class="search"><span class="sr-only">Search ideas</span>${icon('search')}<input class="input" id="sub-search" type="search" placeholder="Search team or idea" value="${S.q}"></label>
       <div class="seg" role="group" aria-label="Show">
-        <button type="button" data-tab="in" aria-pressed="${S.tab === 'in'}">Submitted <span class="faint">${d.submissions.length}</span></button>
-        <button type="button" data-tab="missing" aria-pressed="${S.tab === 'missing'}">Not yet <span class="faint">${d.missing.length}</span></button>
+        <button type="button" data-tab="in" aria-pressed="${String(S.tab === 'in')}">Submitted <span class="faint">${d.submissions.length}</span></button>
+        <button type="button" data-tab="missing" aria-pressed="${String(S.tab === 'missing')}">Not yet <span class="faint">${d.missing.length}</span></button>
       </div>
     </div>
     ${S.tab === 'in'

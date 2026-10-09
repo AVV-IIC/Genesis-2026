@@ -161,12 +161,32 @@ export async function download(kind) {
       template: '/api/admin/teams/template.csv',
       results: '/api/admin/export/results.csv',
       submissions: '/api/admin/export/submissions.csv',
+      design: '/api/admin/export/design.csv',
       backup: '/api/admin/backup',
     }[kind];
     location.href = url;
     return;
   }
   if (kind === 'template') return saveFile('genesis-teams-template.csv', toCsv(TEMPLATE), 'text/csv');
+  if (kind === 'design') {
+    const { roster, writer, cells, cellKey, SHEETS, ITERATIONS } = await import('./design.js');
+    const { teams } = await rpc('api_admin_design');
+    const rows = [];
+    for (const t of teams) {
+      if (!t.base_idea && !t.filled) continue;
+      const names = roster(t.leader_name, t.members);
+      const map = cells(t.ideas);
+      for (let s = 1; s <= SHEETS; s++) {
+        for (let i = 1; i <= ITERATIONS; i++) {
+          const x = map.get(cellKey(i, s));
+          rows.push([t.code, t.name, t.base_idea, s, i, names[writer(s, i) - 1], x ? x.body : '', x ? x.updated_at : '']);
+        }
+      }
+    }
+    return saveFile('genesis-ideathon-design-thinking.csv', toCsv([
+      ['team_id', 'team_name', 'base_idea', 'sheet', 'iteration', 'written_by', 'idea', 'updated_at'], ...rows,
+    ]), 'text/csv');
+  }
   if (kind === 'backup') {
     const data = await rpc('api_admin_backup');
     return saveFile(`genesis-${data.competition || 'event'}-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, JSON.stringify(data, null, 2), 'application/json');
@@ -245,6 +265,9 @@ const ROUTES = [
   ['POST', /^\/team\/tickets\/(\d+)\/messages$/, (m, b) => rpc('api_team_ticket_reply', { p_id: n(m[1]), p_body: b })],
   ['GET', /^\/team\/submission$/, () => rpc('api_team_submission')],
   ['PUT', /^\/team\/submission$/, (m, b) => rpc('api_team_submission_save', { p_body: b })],
+  ['GET', /^\/team\/design$/, () => rpc('api_team_design')],
+  ['PUT', /^\/team\/design\/base$/, (m, b) => rpc('api_team_design_base_save', { p_body: b })],
+  ['PUT', /^\/team\/design\/ideas\/(\d+)\/(\d+)$/, (m, b) => rpc('api_team_design_idea_save', { p_iteration: n(m[1]), p_sheet: n(m[2]), p_body: b })],
 
   ['GET', /^\/judge\/overview$/, () => rpc('api_judge_overview')],
   ['GET', /^\/judge\/rounds\/(\d+)$/, (m) => rpc('api_judge_round', { p_round: n(m[1]) })],
@@ -257,6 +280,7 @@ const ROUTES = [
   ['GET', /^\/admin\/dashboard$/, () => rpc('api_admin_dashboard')],
   ['GET', /^\/admin\/settings$/, () => rpc('api_admin_settings')],
   ['PUT', /^\/admin\/settings$/, (m, b) => rpc('api_admin_settings_save', { p_body: b })],
+  ['POST', /^\/admin\/clock$/, (m, b) => rpc('api_admin_clock', { p_body: b })],
   ['GET', /^\/admin\/admins$/, () => rpc('api_admin_admins')],
   ['PUT', /^\/admin\/admins\/(\d+)$/, (m, b) => rpc('api_admin_admin_rename', { p_id: n(m[1]), p_body: b })],
   ['POST', /^\/admin\/admins\/(\d+)\/password$/, (m) => rpc('api_admin_admin_password', { p_id: n(m[1]) })],
@@ -291,6 +315,7 @@ const ROUTES = [
   ['POST', /^\/admin\/judges\/(\d+)\/password$/, (m) => rpc('api_admin_judge_password', { p_id: n(m[1]) })],
 
   ['GET', /^\/admin\/submissions$/, () => rpc('api_admin_submissions')],
+  ['GET', /^\/admin\/design$/, () => rpc('api_admin_design')],
   ['GET', /^\/admin\/results$/, () => rpc('api_admin_results')],
   ['PUT', /^\/admin\/results\/(\d+)$/, (m, b) => rpc('api_admin_result_save', { p_team: n(m[1]), p_body: b })],
   ['POST', /^\/admin\/results\/publish$/, (m, b) => rpc('api_admin_results_publish', { p_body: b })],

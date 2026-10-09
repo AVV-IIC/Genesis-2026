@@ -50,7 +50,7 @@ export function phaseText(ph = phase()) {
     case 'after':
       return { label: 'Time’s up', time: '00:00:00', sub: `Ended ${fmtTime(new Date(state.end).toISOString())}` };
     default:
-      return { label: 'Event clock', time: '--:--:--', sub: 'Start time not set yet' };
+      return { label: 'Event clock', time: '--:--:--', sub: 'Not started yet' };
   }
 }
 
@@ -59,7 +59,7 @@ export function statusLine(startIso, endIso) {
   const start = startIso ? Date.parse(startIso) : null;
   const end = endIso ? Date.parse(endIso) : null;
   const now = clock.now();
-  if (!start || !end || end <= start) return { kind: 'unset', text: 'Dates to be announced' };
+  if (!start || !end || end <= start) return { kind: 'unset', text: 'Not started yet' };
   if (now < start) return { kind: 'before', text: `Starts in ${fmtDuration(start - now)}` };
   if (now >= end) return { kind: 'after', text: 'Finished' };
   return { kind: 'live', text: `Live · ${fmtDuration(end - now)} left` };

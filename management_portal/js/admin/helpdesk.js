@@ -47,7 +47,7 @@ export async function render(ctx, params, seq) {
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Filter requests">
         ${[['active', 'Needs attention'], ['open', 'Open'], ['in_progress', 'In progress'], ['resolved', 'Resolved'], ['all', 'All']].map(
-          ([k, label]) => html`<button type="button" data-filter="${k}" aria-pressed="${state.filter === k}">${label} <span class="faint">${counts[k]}</span></button>`
+          ([k, label]) => html`<button type="button" data-filter="${k}" aria-pressed="${String(state.filter === k)}">${label} <span class="faint">${counts[k]}</span></button>`
         )}
       </div>
     </div>
