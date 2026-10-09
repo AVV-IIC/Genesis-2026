@@ -1023,7 +1023,22 @@ body.launch-open { overflow: hidden; }
 @keyframes flash-burst { 0% { opacity: 0; } 10% { opacity: 1; } 100% { opacity: 0; } }
 .launch-confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
 .launch-center { position: relative; z-index: 1; display: grid; justify-items: center; gap: 10px; max-width: 980px; padding: 24px; text-align: center; }
-.launch-bulb { position: relative; width: clamp(104px, 17vh, 190px); margin-bottom: 6px; }
+/* The stage stacks the partner logos above the centred content, so they never overlap on short projector screens. */
+.launch-stage { display: flex; flex-direction: column; align-items: center; }
+.launch-stage .launch-center { margin: auto 0; padding-top: 12px; }
+.launch-partners {
+  position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: clamp(14px, 2.2vw, 30px);
+  margin-top: clamp(14px, 3vh, 30px); padding: clamp(8px, 1.3vh, 12px) clamp(16px, 2.2vw, 28px); max-width: calc(100vw - 32px);
+  background: rgb(255 255 255 / 0.95); border-radius: 18px; box-shadow: 0 14px 44px -14px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.4);
+  animation: rise 0.8s 0.15s both;
+}
+.launch-partners img { display: block; width: auto; min-width: 0; }
+.launch-partners .p-amrita { height: clamp(40px, 6.4vh, 64px); }
+.launch-partners .p-iic { height: clamp(36px, 5.6vh, 56px); }
+.launch-partners .p-aicace { height: clamp(26px, 4.2vh, 42px); }
+.launch-partners-rule { flex: none; width: 1px; height: clamp(30px, 5vh, 48px); background: #d3e4de; }
+.launch-bulb { position: relative; width: clamp(80px, 17vh, 190px); margin-bottom: 6px; transition: width 0.8s ease; }
+.launch-stage.is-live .launch-bulb { width: clamp(70px, 12vh, 170px); }
 .launch-bulb img {
   position: relative; z-index: 1; display: block; width: 100%; height: auto;
   filter: grayscale(calc(1 - var(--charge))) brightness(calc(0.42 + var(--charge) * 0.58)) drop-shadow(0 0 calc(var(--charge) * 26px) rgb(0 217 234 / 0.8));
@@ -1041,7 +1056,7 @@ body.launch-open { overflow: hidden; }
 @keyframes glow-pulse { 50% { scale: 0.88; opacity: 0.72; } }
 .launch-eyebrow { font: 600 13px/1.2 var(--f-body); letter-spacing: 0.34em; text-transform: uppercase; color: #8ff0d0; }
 .launch-title {
-  font: 800 clamp(46px, 9vw, 124px)/0.9 var(--f-display); text-transform: uppercase; letter-spacing: 0.01em; overflow-wrap: anywhere;
+  font: 800 clamp(42px, min(9vw, 13vh), 124px)/0.9 var(--f-display); text-transform: uppercase; letter-spacing: 0.01em; overflow-wrap: anywhere;
   background: linear-gradient(92deg, #ffffff 0%, #c9fff3 38%, #00d9ea 70%, #6fd18f 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .launch.is-live .launch-title { animation: title-in 1.1s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
@@ -1070,7 +1085,7 @@ body.launch-open { overflow: hidden; }
 .launch-clock { display: grid; justify-items: center; gap: 4px; margin-top: 16px; animation: rise 0.8s 0.5s both; }
 .launch-clock[hidden] { display: none; }
 .launch-clock span { font-size: 13px; letter-spacing: 0.3em; text-transform: uppercase; color: #8ff0d0; }
-.launch-clock b { font: 800 clamp(64px, 12vw, 160px)/1 var(--f-display); letter-spacing: 0.03em; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 34px rgb(0 217 234 / 0.5); }
+.launch-clock b { font: 800 clamp(52px, min(12vw, 15vh), 160px)/1 var(--f-display); letter-spacing: 0.03em; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 34px rgb(0 217 234 / 0.5); }
 .launch-clock small { font-size: 15px; color: #c9efe6; }
 .launch-done {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; padding: 12px 22px; border-radius: 999px; cursor: pointer;

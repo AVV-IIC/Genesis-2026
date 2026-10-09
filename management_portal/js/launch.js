@@ -117,6 +117,13 @@ export function openStage({ eventName, label, onStart }) {
   return new Promise((resolve) => {
     const el = mount('launch-stage', html`
       <button type="button" class="launch-close" data-close>${icon('x')}Not yet</button>
+      <div class="launch-partners">
+        <img src="img/partners/amrita.png" alt="Amrita Vishwa Vidyapeetham, Coimbatore Campus" width="308" height="128" class="p-amrita">
+        <span class="launch-partners-rule" aria-hidden="true"></span>
+        <img src="img/partners/iic.png" alt="Institution’s Innovation Council" width="243" height="112" class="p-iic">
+        <span class="launch-partners-rule" aria-hidden="true"></span>
+        <img src="img/partners/aicace.png" alt="AICACE" width="448" height="88" class="p-aicace">
+      </div>
       <div class="launch-center">
         <div class="launch-bulb"><span class="launch-glow" aria-hidden="true"></span><img src="img/logo.png" alt="" width="352" height="568"></div>
         <p class="launch-eyebrow" data-eyebrow>Inauguration</p>
@@ -131,7 +138,7 @@ export function openStage({ eventName, label, onStart }) {
     el.setAttribute('aria-labelledby', 'launch-title');
     // Fill the projector: the Start button that opened this was a click, so fullscreen is allowed.
     el.requestFullscreen?.().catch(() => {});
-    $('[data-go]', el).focus();
+    $('[data-go]', el).focus({ preventScroll: true });
 
     let stopConfetti = null;
     let clockTimer = null;
@@ -194,7 +201,7 @@ export function openStage({ eventName, label, onStart }) {
       clockTimer = setInterval(paint, 250);
       const done = $('[data-done]', el);
       done.hidden = false;
-      setTimeout(() => done.focus(), 1600);
+      setTimeout(() => done.focus({ preventScroll: true }), 1600);
     });
   });
 }

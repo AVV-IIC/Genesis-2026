@@ -64,6 +64,10 @@ async function rpc(fn, args = {}, { auth = true } = {}) {
   const sb = await client();
   const { data, error } = await sb.rpc(fn, auth ? { p_token: token(), ...args } : args);
   if (error) {
+    if (error.code === 'PGRST202') {
+      // The website is newer than the database functions: supabase/schema.sql hasn't been re-run yet.
+      throw new BackendError('This part of the portal needs a database update. Organisers: re-run supabase/schema.sql in the Supabase SQL Editor.', 501, error);
+    }
     const status = /^PT\d{3}$/.test(error.code || '') ? Number(error.code.slice(2)) : 0;
     if (!status && /fetch|network|Failed/i.test(error.message || '')) {
       throw new BackendError('Can’t reach the server. Check your connection and try again.', 0);
