@@ -268,6 +268,7 @@ const ROUTES = [
   ['GET', /^\/team\/design$/, () => rpc('api_team_design')],
   ['PUT', /^\/team\/design\/base$/, (m, b) => rpc('api_team_design_base_save', { p_body: b })],
   ['PUT', /^\/team\/design\/ideas\/(\d+)\/(\d+)$/, (m, b) => rpc('api_team_design_idea_save', { p_iteration: n(m[1]), p_sheet: n(m[2]), p_body: b })],
+  ['POST', /^\/team\/design\/next$/, (m, b) => rpc('api_team_design_next', { p_body: b })],
 
   ['GET', /^\/judge\/overview$/, () => rpc('api_judge_overview')],
   ['GET', /^\/judge\/rounds\/(\d+)$/, (m) => rpc('api_judge_round', { p_round: n(m[1]) })],
@@ -316,6 +317,7 @@ const ROUTES = [
 
   ['GET', /^\/admin\/submissions$/, () => rpc('api_admin_submissions')],
   ['GET', /^\/admin\/design$/, () => rpc('api_admin_design')],
+  ['POST', /^\/admin\/design\/(\d+)\/back$/, (m) => rpc('api_admin_design_back', { p_team: n(m[1]) })],
   ['GET', /^\/admin\/results$/, () => rpc('api_admin_results')],
   ['PUT', /^\/admin\/results\/(\d+)$/, (m, b) => rpc('api_admin_result_save', { p_team: n(m[1]), p_body: b })],
   ['POST', /^\/admin\/results\/publish$/, (m, b) => rpc('api_admin_results_publish', { p_body: b })],

@@ -53,5 +53,5 @@ export const RULES = [
   ['Write the base idea', 'Agree on one starting idea as a team and write it in the box below.'],
   ['Iteration 1', 'All 4 members develop the base idea at the same time, each in their own box. About 5 minutes.'],
   ['Iterations 2 and 3', 'Pass it along: build on the idea the previous member wrote, shown above your box. About 5 minutes each.'],
-  ['12 ideas', '4 members × 3 iterations. The 5 minutes is a guide, not a hard limit. Everything saves as you type.'],
+  ['One step at a time', 'When all 4 ideas are in, press the button to move on. The earlier iteration then locks, so there’s no going back. 4 members × 3 iterations = 12 ideas. The 5 minutes is a guide, not a hard limit.'],
 ];

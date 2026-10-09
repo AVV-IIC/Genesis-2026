@@ -1,16 +1,24 @@
 import {
-  $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, formValues, withBusy,
+  $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, formValues, withBusy, confirmDialog,
   connectLive, startRouter, preserveInputs, debounce, signOut, richText, timeAgo, fmtTime, fmtDay,
   fmtScore, fmtDateTime, STATE_LABEL, TICKET_LABEL, guardPage, HOME, COMP_LABEL,
 } from '../core.js';
-import { setEventTimes, mountDial, eventRangeText, fmtDuration, phase } from '../dial.js';
+import { setEventTimes, mountDial, eventRangeText, fmtDuration, phase, onPhaseChange } from '../dial.js';
+import { celebrate } from '../launch.js';
 import { chip, empty, annItem, timeline, urgentBar } from '../portal.js';
-import { roster, writer, sheetFor, cells, cellKey, filled, countFilled, chainsHTML, RULES, SHEETS, ITERATIONS, TOTAL, MAX_TEXT } from '../design.js';
+import { roster, writer, sheetFor, cells, cellKey, filled, chainsHTML, RULES, SHEETS, ITERATIONS, TOTAL, MAX_TEXT } from '../design.js';
 
 const main = $('#main');
-const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null, dtIteration: null, dtAll: false };
+const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null, dt: null };
 
 guardPage('team');
+
+// Inauguration: when the organisers press Start while this page is open, celebrate.
+onPhaseChange((kind, prev) => {
+  if (kind === 'live' && (prev === 'unset' || prev === 'before') && app.data) {
+    celebrate({ eventName: app.data.event.event_name, label: COMP_LABEL[app.data.competition] });
+  }
+});
 setHTML($('#mark'), MARK);
 $('#signout').addEventListener('click', signOut);
 
@@ -318,12 +326,12 @@ const VIEWS = {
       setHTML(main, html`<div class="card">${empty('Design Thinking is off', 'The organisers haven’t opened the Design Thinking page right now. Watch the announcements.')}</div>`);
       return;
     }
+    dt.stage = dt.stage || 1; // older databases have no stage yet
     app.dt = dt;
     const names = dtNames();
     const map = cells(dt.ideas);
-    // Start on the first iteration that still has empty boxes.
-    if (!app.dtIteration) app.dtIteration = dtRange(ITERATIONS).find((i) => dtRange(SHEETS).some((s) => !filled(map.get(cellKey(i, s))))) || 1;
-    const it = app.dtIteration;
+    const stage = dt.stage;
+    const finished = stage > ITERATIONS;
     setHTML(
       main,
       html`
@@ -331,27 +339,29 @@ const VIEWS = {
         <div><h1 class="page-title">Design Thinking</h1><p>The 4-5-3 method: 4 members, about 5 minutes each, 3 iterations, 12 ideas. Everything saves as you type.</p></div>
         <div class="row"><span data-dt-total>${dtTotalChip(dt)}</span></div>
       </div>
-      <details class="card dt-rules-card" ${dt.filled ? '' : 'open'}>
+      <section class="card dt-progress">${dtStepper(stage)}</section>
+      ${finished ? '' : html`<details class="card dt-rules-card" ${dt.filled ? '' : 'open'}>
         <summary><strong>How it works</strong></summary>
         <ol class="dt-rules">${RULES.map(([t, text]) => html`<li><strong>${t}</strong><span>${text}</span></li>`)}</ol>
-      </details>
-      <section class="card stack-sm dt-base">
-        <label class="field"><span>Base idea <span class="hint">Your team’s starting idea</span></span>
-          <textarea class="textarea" id="dt-base" data-dt="base" rows="3" maxlength="${MAX_TEXT}" placeholder="One or two sentences the whole team agrees on">${dt.base_idea}</textarea></label>
-        <p class="small muted dt-state" data-state="base">${dt.base_idea ? 'Saved' : ''}</p>
-      </section>
-      <div class="dt-iter-head">
-        <div class="seg" role="group" aria-label="Iteration">
-          ${dtRange(ITERATIONS).map((i) => html`<button type="button" data-iter="${i}" aria-pressed="${String(!app.dtAll && it === i)}">Iteration ${i} <span class="faint" data-iter-count="${i}">${dtCount(map, i)}/${SHEETS}</span></button>`)}
-          <button type="button" data-iter="all" aria-pressed="${String(app.dtAll)}">All 12 ideas</button>
-        </div>
-        <p class="small muted">${app.dtAll
-          ? 'Each sheet passes to the next member every iteration.'
-          : it === 1 ? 'Everyone develops the base idea, each in their own box. About 5 minutes.' : `Pass it along: build on the idea shown above your box. About 5 minutes.`}</p>
-      </div>
-      ${app.dtAll
-        ? html`<section class="card" data-dt-all>${chainsHTML(dt, names)}</section>`
-        : html`<div class="dt-grid">${dtRange(SHEETS).map((m) => dtCard(m, it, names, map, dt))}</div>`}`
+      </details>`}
+      ${stage === 1
+        ? html`<section class="card stack-sm dt-base">
+            <label class="field"><span>Base idea <span class="hint">Your team’s starting idea</span></span>
+              <textarea class="textarea" id="dt-base" data-dt="base" rows="3" maxlength="${MAX_TEXT}" placeholder="One or two sentences the whole team agrees on">${dt.base_idea}</textarea></label>
+            <p class="small muted dt-state" data-state="base">${dt.base_idea ? 'Saved' : ''}</p>
+          </section>`
+        : html`<section class="card dt-base dt-base-locked"><span class="label">Base idea · locked</span><div>${richText(dt.base_idea)}</div></section>`}
+      ${finished
+        ? html`<div class="callout dt-done">${icon('award')}<span><strong>Your team has finished: ${dt.filled} ideas.</strong> Here’s how each idea grew as it passed from member to member.</span></div>
+           <section class="card">${chainsHTML(dt, names)}</section>`
+        : html`<div class="dt-iter-head">
+             <h2 class="section-title">Iteration ${stage} of ${ITERATIONS}</h2>
+             <p class="small muted">${stage === 1
+               ? 'Everyone develops the base idea at the same time, each in their own box. About 5 minutes.'
+               : 'Pass it along: build on the idea shown above your box. About 5 minutes.'}</p>
+           </div>
+           <div class="dt-grid">${dtRange(SHEETS).map((m) => dtCard(m, stage, names, map, dt))}</div>
+           <section class="card dt-next" data-dt-next aria-live="polite">${dtNextHTML()}</section>`}`
     );
     bindDesign();
   },
@@ -513,10 +523,21 @@ const VIEWS = {
 };
 
 // ---------- Design Thinking (4-5-3) helpers ----------------------------------------------------
+// The team moves through the iterations one at a time: "Go to iteration n" only unlocks once all
+// 4 ideas are in, and after that the earlier iterations (and the base idea) are locked for everyone.
 const dtRange = (n) => Array.from({ length: n }, (_, k) => k + 1);
 const dtNames = () => roster(app.data.team.leader_name, app.data.team.members);
-const dtCount = (map, i) => dtRange(SHEETS).filter((s) => filled(map.get(cellKey(i, s)))).length;
-const dtTotalChip = (dt) => chip(dt.filled >= TOTAL ? 'selected' : 'pending', `${dt.filled}/${TOTAL} ideas`);
+const dtTotalChip = (dt) => chip(dt.stage > ITERATIONS ? 'selected' : 'pending', `${dt.filled}/${TOTAL} ideas`);
+
+function dtStepper(stage) {
+  const steps = [...dtRange(ITERATIONS).map((i) => [`Iteration ${i}`, i]), ['Finished', ITERATIONS + 1]];
+  return html`<ol class="path dt-path" style="--n:${steps.length}" aria-label="Design Thinking progress">${steps.map(([label, n]) => {
+    const done = n < stage || (n > ITERATIONS && stage > ITERATIONS);
+    const now = n === stage && stage <= ITERATIONS;
+    return html`<li class="${done ? 'is-done' : now ? 'is-now' : ''}"><span class="node">${done ? icon('check') : n > ITERATIONS ? icon('award') : n}</span>
+      <strong>${label}</strong><small>${done ? (n > ITERATIONS ? '12 ideas' : 'Locked') : now ? 'Now' : ''}</small></li>`;
+  })}</ol>`;
+}
 
 /** What member m builds on in iteration i: the base idea, or the previous member's idea on the same sheet. */
 function dtSource(member, iteration, names, map, dt) {
@@ -528,9 +549,7 @@ function dtSource(member, iteration, names, map, dt) {
   const sheet = sheetFor(member, iteration);
   const prev = map.get(cellKey(iteration - 1, sheet));
   const by = names[writer(sheet, iteration - 1) - 1];
-  return filled(prev)
-    ? html`<span class="label">Build on ${by}’s idea</span><div>${richText(prev.body)}</div>`
-    : html`<span class="label">Build on ${by}’s idea</span><p class="faint small">${by} hasn’t written it yet (iteration ${iteration - 1}).</p>`;
+  return html`<span class="label">Build on ${by}’s idea</span>${filled(prev) ? html`<div>${richText(prev.body)}</div>` : html`<p class="faint small">(left empty)</p>`}`;
 }
 
 function dtCard(member, iteration, names, map, dt) {
@@ -538,13 +557,42 @@ function dtCard(member, iteration, names, map, dt) {
   const x = map.get(cellKey(iteration, sheet));
   const key = `${iteration}-${sheet}`;
   return html`<section class="card dt-card">
-    <div class="dt-card-head"><span class="dt-who">${names[member - 1]}</span><span class="small faint">Sheet ${sheet} · iteration ${iteration}</span></div>
+    <div class="dt-card-head"><span class="dt-who">${names[member - 1]}</span><span class="small faint">Sheet ${sheet}</span></div>
     <div class="dt-prev" data-prev="${member}">${dtSource(member, iteration, names, map, dt)}</div>
     <label class="field"><span class="sr-only">${names[member - 1]}’s idea for iteration ${iteration}</span>
-      <textarea class="textarea" id="dt-${key}" data-dt="${key}" rows="5" maxlength="${MAX_TEXT}" placeholder="${names[member - 1]}, write your idea here">${x ? x.body : ''}</textarea></label>
+      <textarea class="textarea" id="dt-${key}" data-dt="${key}" data-member="${member}" rows="5" maxlength="${MAX_TEXT}" placeholder="${names[member - 1]}, write your idea here">${x ? x.body : ''}</textarea></label>
     <p class="small muted dt-state" data-state="${key}">${filled(x) ? `Saved ${timeAgo(x.updated_at)}` : ''}</p>
   </section>`;
 }
+
+/** Who still has to write, judged from what's in the boxes on this phone right now. */
+function dtReadiness() {
+  const names = dtNames();
+  const boxes = $$('textarea[data-member]', main);
+  const missing = boxes.filter((el) => !el.value.trim()).map((el) => names[Number(el.dataset.member) - 1]);
+  const base = $('#dt-base');
+  const needBase = Boolean(base && !base.value.trim());
+  return { done: boxes.length - missing.length, missing, needBase, ready: boxes.length === SHEETS && !missing.length && !needBase };
+}
+
+function dtNextHTML() {
+  const stage = app.dt.stage;
+  const r = dtReadiness();
+  const list = r.missing.length > 1 ? `${r.missing.slice(0, -1).join(', ')} and ${r.missing[r.missing.length - 1]}` : r.missing[0];
+  const waiting = [r.needBase ? 'the base idea' : '', r.missing.length ? `${r.missing.length === 1 ? 'an idea' : 'ideas'} from ${list}` : ''].filter(Boolean).join(' and ');
+  const finish = stage === ITERATIONS;
+  return html`<div class="dt-next-text">
+      <strong>${r.done} of ${SHEETS} ideas written</strong>
+      <small>${r.ready
+        ? finish ? 'All in. Finish to lock your 12 ideas and see the whole sheet.' : `All in. Move on when everyone is happy with their idea: iteration ${stage} locks after that.`
+        : `Still waiting for ${waiting}.`}</small>
+    </div>
+    <button type="button" class="btn btn-primary" data-dt-advance ${r.ready ? '' : 'disabled'}>${finish ? html`${icon('award')}Finish` : html`Go to iteration ${stage + 1}${icon('arrow')}`}</button>`;
+}
+const dtPaintNext = () => {
+  const box = $('[data-dt-next]', main);
+  if (box && app.dt) setHTML(box, dtNextHTML());
+};
 
 // Autosave: each box saves on its own (so 4 people on 4 phones don't overwrite each other),
 // a moment after typing stops and when the box loses focus.
@@ -584,6 +632,7 @@ function dtSave(key) {
       designRefresh();
     } catch (err) {
       dtState(key, `Not saved: ${err.message || 'check your connection'}`, 'error');
+      if (err.status === 409) designRefresh(); // the team moved on from another phone
     } finally {
       dtSending.delete(key);
     }
@@ -593,6 +642,35 @@ function dtSave(key) {
 }
 const dtFlush = () => Promise.all([...new Set([...dtTimers.keys(), ...$$('textarea[data-dt]', main).filter((el) => el.value !== el.defaultValue).map((el) => el.dataset.dt)])].map(dtSave));
 
+async function dtAdvance(btn) {
+  const stage = app.dt.stage;
+  const finish = stage === ITERATIONS;
+  await dtFlush();
+  if ($$('textarea[data-dt]', main).some((el) => el.value !== el.defaultValue)) {
+    toast('Some ideas haven’t saved yet. Check your connection and try again.', 'error');
+    return;
+  }
+  const ok = await confirmDialog({
+    title: finish ? 'Finish Design Thinking?' : `Move on to iteration ${stage + 1}?`,
+    message: finish
+      ? 'All 12 ideas get locked for your whole team, and you’ll see the full sheet.'
+      : `Check that all 4 members are happy with their idea. After this, nobody in your team can change iteration ${stage}${stage === 1 ? ' or the base idea' : ''}.`,
+    confirmLabel: finish ? 'Finish' : `Go to iteration ${stage + 1}`,
+  });
+  if (!ok) return;
+  await withBusy(btn, async () => {
+    try {
+      app.dt = await api('/team/design/next', { method: 'POST', body: { from: stage } });
+      toast(app.dt.stage > ITERATIONS ? 'Done! Your team’s 12 ideas are locked in.' : `Iteration ${app.dt.stage}: pass it along.`, 'ok');
+      scrollTo({ top: 0, behavior: 'smooth' });
+      render();
+    } catch (err) {
+      toastError(err);
+      designRefresh();
+    }
+  });
+}
+
 function bindDesign() {
   for (const el of $$('textarea[data-dt]', main)) {
     const key = el.dataset.dt;
@@ -600,17 +678,14 @@ function bindDesign() {
       dtState(key, 'Not saved yet');
       clearTimeout(dtTimers.get(key));
       dtTimers.set(key, setTimeout(() => dtSave(key), 1500));
+      dtPaintNext();
     });
     el.addEventListener('blur', () => dtSave(key));
   }
-  for (const b of $$('[data-iter]', main)) {
-    b.addEventListener('click', async () => {
-      await dtFlush();
-      app.dtAll = b.dataset.iter === 'all';
-      if (!app.dtAll) app.dtIteration = Number(b.dataset.iter);
-      render();
-    });
-  }
+  $('[data-dt-next]', main)?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dt-advance]');
+    if (b && !b.disabled) dtAdvance(b);
+  });
 }
 
 /** Fresh data from teammates' devices, without touching a box someone is typing in. */
@@ -624,6 +699,13 @@ const designRefresh = debounce(async () => {
   }
   if (app.view !== 'design') return;
   if (!dt.enabled) return refresh();
+  dt.stage = dt.stage || 1;
+  if (app.dt && dt.stage !== app.dt.stage) {
+    // Another phone moved the team on (or an organiser reopened a step): show the new step.
+    toast(dt.stage > ITERATIONS ? 'Your team has finished Design Thinking.' : `Your team is now on iteration ${dt.stage}.`, 'info', { title: 'Design Thinking' });
+    app.dt = dt;
+    return render();
+  }
   app.dt = dt;
   const names = dtNames();
   const map = cells(dt.ideas);
@@ -638,12 +720,10 @@ const designRefresh = debounce(async () => {
       dtState(key, server ? 'Updated from a teammate' : '');
     }
   }
-  for (const box of $$('[data-prev]', main)) setHTML(box, dtSource(Number(box.dataset.prev), app.dtIteration, names, map, dt));
-  for (const n of $$('[data-iter-count]', main)) n.textContent = `${dtCount(map, Number(n.dataset.iterCount))}/${SHEETS}`;
+  for (const box of $$('[data-prev]', main)) setHTML(box, dtSource(Number(box.dataset.prev), dt.stage, names, map, dt));
   const total = $('[data-dt-total]', main);
   if (total) setHTML(total, dtTotalChip(dt));
-  const all = $('[data-dt-all]', main);
-  if (all) setHTML(all, chainsHTML(dt, names));
+  dtPaintNext();
 }, 400);
 
 // Saves aren't broadcast on the static site, so an open Design Thinking page checks for teammates' ideas.

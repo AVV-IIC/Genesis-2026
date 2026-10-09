@@ -4,7 +4,8 @@ import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, withBusy,
   connectLive, startRouter, preserveInputs, debounce, signOut, timeAgo, fmtScore, firstName, STATE_LABEL, guardPage, HOME,
 } from '../core.js';
-import { setEventTimes, mountDial, eventRangeText } from '../dial.js';
+import { setEventTimes, mountDial, eventRangeText, onPhaseChange } from '../dial.js';
+import { celebrate } from '../launch.js';
 import { chip, empty, annItem, timeline, urgentBar } from '../portal.js';
 
 const main = $('#main');
@@ -13,6 +14,13 @@ const app = { data: null, view: 'evaluate', params: [], seq: 0, dismissedUrgent:
 const J = { round: null, teams: [], teamId: null, q: '', pending: null, chain: Promise.resolve(), inflight: 0 };
 
 guardPage('judge');
+
+// Inauguration: when the organisers press Start while this page is open, celebrate.
+onPhaseChange((kind, prev) => {
+  if (kind === 'live' && (prev === 'unset' || prev === 'before') && app.data) {
+    celebrate({ eventName: app.data.event.event_name, label: 'Hackathon' });
+  }
+});
 setHTML($('#mark'), MARK);
 $('#signout').addEventListener('click', async () => {
   await flushPending();
