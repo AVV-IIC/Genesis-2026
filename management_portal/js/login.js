@@ -14,7 +14,7 @@ const ROLES = {
   ideathon: [['team', 'Team leader'], ['admin', 'Organiser']],
 };
 const FIELDS = {
-  team: { label: 'Team ID', placeholder: { hackathon: 'e.g. GEN014', ideathon: 'e.g. GEN26-A0H-I014' }, caps: true, foot: 'Forgot your password? An organiser can reset it for you.' },
+  team: { label: 'Team ID', placeholder: { hackathon: 'e.g. GEN26-A0H-H014', ideathon: 'e.g. GEN26-A0H-I014' }, caps: true, foot: 'Forgot your password? An organiser can reset it for you.' },
   judge: { label: 'Judge ID', placeholder: { hackathon: 'e.g. JDG001' }, caps: true, foot: 'Your judge ID and password come from the organisers.' },
   admin: { label: 'Username', placeholder: { hackathon: 'e.g. admin1', ideathon: 'e.g. ideaadmin1' }, caps: false, foot: 'Organiser accounts are set up by the event team.' },
 };
