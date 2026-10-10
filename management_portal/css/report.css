@@ -1,0 +1,81 @@
+/* Printable assessment report (report.html). Made to be read on screen and saved as PDF on A4. */
+@font-face { font-family: 'Big Shoulders Display'; src: url('../fonts/big-shoulders-display-latin-800-normal.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Figtree'; src: url('../fonts/figtree-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Martian Mono'; src: url('../fonts/martian-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+
+:root {
+  --ink: #0f2e2e; --muted: #4d6866; --faint: #7b9592; --line: #d3e4de; --soft: #f2f8f6; --teal: #0b7a70; --bad: #c0362c;
+  --f-display: 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif;
+  --f-body: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'Martian Mono', ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #e9f1ee; color: var(--ink); font: 400 14px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4, p { margin: 0; }
+
+/* toolbar (screen only) */
+.rp-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+.rp-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--line); background: #fff; color: var(--ink); font: 600 14px var(--f-body); text-decoration: none; cursor: pointer; }
+.rp-btn:hover { background: var(--soft); }
+.rp-btn:disabled { opacity: 0.5; cursor: default; }
+.rp-primary { background: var(--teal); border-color: transparent; color: #fff; }
+.rp-primary:hover { background: #096a61; }
+.rp-ghost { border-color: transparent; }
+.rp-seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; }
+.rp-seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; font: 600 13px var(--f-body); color: var(--muted); cursor: pointer; }
+.rp-seg button[aria-pressed='true'] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgb(16 48 48 / 0.15); }
+.rp-tip { color: var(--faint); font-size: 12px; }
+
+/* the document */
+.rp-doc { max-width: 210mm; margin: 20px auto 40px; padding: 18mm 16mm; background: #fff; box-shadow: 0 10px 30px -14px rgb(16 48 48 / 0.3); border-radius: 6px; }
+.rp-note { color: var(--muted); }
+.rp-error { color: var(--bad); }
+.rp-head { display: flex; gap: 14px; align-items: center; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 3px solid var(--teal); }
+.rp-head img { height: 64px; width: auto; }
+.rp-kicker { color: var(--teal); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.rp-head h1 { font: 800 30px/1.05 var(--f-display); text-transform: uppercase; letter-spacing: 0.02em; margin: 2px 0 4px; overflow-wrap: anywhere; }
+.rp-meta { color: var(--muted); font-size: 12px; }
+.rp-box { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; background: #fbfdfc; }
+.rp-facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0 0 8px; font-size: 13px; }
+.rp-facts dt { color: var(--muted); font-weight: 600; }
+.rp-facts dd { margin: 0; }
+.rp-instr { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.rp-qlist { margin: 6px 0 0; padding-left: 22px; font-weight: 600; }
+.rp-qlist li { margin: 2px 0; }
+.rp-section { margin-top: 18px; }
+.rp-section > h2 { font: 800 20px/1.1 var(--f-display); text-transform: uppercase; letter-spacing: 0.03em; color: var(--teal); margin-bottom: 8px; break-after: avoid; }
+.rp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rp-table th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1.5px solid var(--line); padding: 5px 6px; }
+.rp-table td { border-bottom: 1px solid #e5efeb; padding: 5px 6px; vertical-align: top; }
+.rp-table tr { break-inside: avoid; }
+.rp-sum .rp-none td { color: var(--bad); }
+.rp-code { font: 500 11px var(--f-mono); background: var(--soft); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; white-space: nowrap; color: var(--ink); }
+.rp-team, .rp-question { padding: 10px 0 12px; border-top: 1px solid var(--line); }
+.rp-team h3, .rp-question h3 { font-size: 16px; font-weight: 700; break-after: avoid; overflow-wrap: anywhere; }
+.rp-team h4 { margin: 10px 0 2px; font-size: 13px; color: var(--teal); text-transform: uppercase; letter-spacing: 0.04em; break-after: avoid; }
+.rp-session { font: 800 18px/1.1 var(--f-display) !important; text-transform: uppercase; margin: 14px 0 4px; color: var(--ink); }
+.rp-sub { color: var(--muted); font-size: 12px; margin: 2px 0 6px; }
+.rp-qa { margin: 8px 0 0; break-inside: avoid; }
+.rp-q { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
+.rp-a { margin-top: 3px; padding: 6px 10px; border-left: 3px solid #9fd8c9; background: #f7fbfa; font-size: 13.5px; overflow-wrap: anywhere; }
+.rp-blank { color: var(--faint); font-style: italic; border-left-color: #e3c5c2; }
+.rp-missing { font-size: 12px; color: var(--muted); margin-top: 8px; overflow-wrap: anywhere; }
+.rp-a a, .rp-q a, .rp-instr a { color: var(--teal); }
+
+@media (max-width: 760px) {
+  .rp-doc { margin: 0; padding: 18px 16px; border-radius: 0; box-shadow: none; }
+  .rp-tip { display: none; }
+}
+
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  body { background: #fff; }
+  .rp-bar { display: none; }
+  .rp-doc { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; }
+  .rp-a { background: none; }
+  .rp-box { background: none; }
+  a { color: inherit; text-decoration: none; }
+}

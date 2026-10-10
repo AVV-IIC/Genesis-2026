@@ -15,8 +15,8 @@ const RESET = {
     everything: ['Delete teams & all Hackathon data', 'This deletes every Hackathon team, judge, score, result, announcement, help request and schedule item. Rounds, criteria, settings and organiser accounts are kept. The Ideathon is not touched.', 'All Hackathon data deleted.'],
   },
   ideathon: {
-    scores: ['Clear ideas & results', 'This deletes every submitted idea and every award and note, and hides the results again. Teams, announcements and the schedule are kept.', 'Ideas and results cleared.'],
-    everything: ['Delete teams & all Ideathon data', 'This deletes every Ideathon team, idea, result, announcement, help request and schedule item. Settings and organiser accounts are kept. The Hackathon is not touched.', 'All Ideathon data deleted.'],
+    scores: ['Clear ideas & results', 'This deletes every submitted idea, Design Thinking sheet and assessment answer, and every award and note, and hides the results again. Assessment questions (turned off), teams, announcements and the schedule are kept.', 'Ideas and results cleared.'],
+    everything: ['Delete teams & all Ideathon data', 'This deletes every Ideathon team, idea, assessment answer, result, announcement, help request and schedule item. Assessment questions (turned off), settings and organiser accounts are kept. The Hackathon is not touched.', 'All Ideathon data deleted.'],
   },
 };
 

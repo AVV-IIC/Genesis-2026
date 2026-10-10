@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://ogogexuinuynaglkxeeh.supabase.co wss://ogogexuinuynaglkxeeh.supabase.co; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="same-origin">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Assessment report · Genesis</title>
+  <link rel="icon" href="img/favicon.png" type="image/png">
+  <link rel="stylesheet" href="css/report.css">
+  <script type="module" src="js/report.js"></script>
+</head>
+<body>
+  <div class="rp-bar">
+    <a class="rp-btn rp-ghost" href="admin.html#/assessments">← Organiser console</a>
+    <div class="rp-seg" role="group" aria-label="Arrange the answers">
+      <button type="button" data-by="team" aria-pressed="true">By team</button>
+      <button type="button" data-by="question" aria-pressed="false">By question</button>
+    </div>
+    <button type="button" class="rp-btn rp-primary" id="rp-print" disabled>Save as PDF / Print</button>
+    <p class="rp-tip">In the print window, choose “Save as PDF” as the printer.</p>
+  </div>
+  <main id="report" class="rp-doc"><p class="rp-note">Preparing the report…</p></main>
+</body>
+</html>

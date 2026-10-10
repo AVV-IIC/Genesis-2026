@@ -1,11 +1,11 @@
-import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, toast, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, COMP_LABEL } from '../core.js';
+import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, fmtTime, plural, toast, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, COMP_LABEL } from '../core.js';
 import { mountDial, eventRangeText } from '../dial.js';
 import { chip, empty } from './shared.js';
 import { openComposer } from './announcements.js';
 import { clockState } from './settings.js';
 import { openStage } from '../launch.js';
 
-export const live = ['teams', 'rounds', 'results', 'announcement', 'announcements', 'ticket', 'settings', 'schedule', 'judges', 'submission', 'design'];
+export const live = ['teams', 'rounds', 'results', 'announcement', 'announcements', 'ticket', 'settings', 'schedule', 'judges', 'submission', 'design', 'assessment'];
 
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
@@ -139,6 +139,7 @@ function judgingCard(d) {
 function ideathonCard(d) {
   const st = d.ideathon.state;
   const dt = d.ideathon.design;
+  const as = d.ideathon.assessments;
   const subLine = !st.enabled
     ? 'Turned off. Teams just work through the 24 hours.'
     : st.open
@@ -153,6 +154,10 @@ function ideathonCard(d) {
           ? `${dt.started} of ${dt.teams} teams started · ${dt.complete} finished`
           : 'Page hidden from teams. Turn it on in Settings.'}</small></span>
         <span class="row">${dt.enabled ? chip('live', 'On') : chip('upcoming', 'Off')}<a class="btn btn-ghost btn-sm" href="#/design">Open</a></span></li>` : ''}
+      ${as ? html`<li><span><strong>Assessments</strong><br><small class="faint">${as.open.length
+          ? as.open.map((a) => `${a.title}: ${a.answered} of ${plural(d.stats.active, 'team')} answered, closes ${fmtTime(a.closes_at)}`).join(' · ')
+          : as.total ? `${plural(as.total, 'assessment')}. None open for answers right now.` : 'Post questions for teams after each session.'}</small></span>
+        <span class="row">${as.open.length ? chip('live', 'Open') : chip('upcoming', as.on ? 'Time’s up' : 'Off')}<a class="btn btn-ghost btn-sm" href="#/assessments">Open</a></span></li>` : ''}
       <li><span><strong>Results</strong><br><small class="faint">${d.ideathon.results_published ? 'Teams can see their awards and notes.' : 'Hidden from teams until you publish.'}</small></span>
         <span class="row">${d.ideathon.results_published ? chip('selected', 'Published') : chip('upcoming', 'Hidden')}<a class="btn btn-ghost btn-sm" href="#/results">Open</a></span></li>
     </ul>

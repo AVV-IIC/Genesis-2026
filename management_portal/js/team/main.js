@@ -45,6 +45,7 @@ function renderChrome() {
     ['overview', 'Overview'],
     ideathon ? null : ['scorecard', 'Scorecard'],
     ideathon && d.design && d.design.enabled ? ['design', 'Design Thinking'] : null,
+    ideathon && d.assessments && d.assessments.on ? ['assessments', 'Assessments', asTodo(d)] : null,
     ideathon && d.submission.enabled ? ['idea', 'My idea'] : null,
     ['announcements', 'Announcements', d.unread],
     ['schedule', 'Schedule'],
@@ -185,6 +186,7 @@ const VIEWS = {
     setHTML(
       main,
       html`
+      ${ideathon ? asBanners(d) : ''}
       <div class="hero-grid">
         <section class="card hero-dial" aria-label="Event clock">
           <div data-dial></div>
@@ -364,6 +366,22 @@ const VIEWS = {
            <section class="card dt-next" data-dt-next aria-live="polite">${dtNextHTML()}</section>`}`
     );
     bindDesign();
+  },
+
+  async assessments(params, seq) {
+    const data = await api('/team/assessments');
+    if (seq !== app.seq) return;
+    clock.sync(data.serverTime);
+    app.as = data.assessments;
+    asLocking.clear();
+    const head = html`<div class="page-head"><div><h1 class="page-title">Assessments</h1><p>Questions from the organisers after each session. Your team writes one set of answers together. Every answer saves as you type, and you can change it until time is up.</p></div></div>`;
+    if (!app.as.length) {
+      setHTML(main, html`${head}<div class="card">${empty('No questions right now', 'After each session the organisers post questions here, and this page lets you know.')}</div>`);
+      return;
+    }
+    setHTML(main, html`${head}<div class="stack">${app.as.map(asSheet)}</div>`);
+    tickCountdowns();
+    bindAssess();
   },
 
   scorecard() {
@@ -736,6 +754,193 @@ document.addEventListener('visibilitychange', () => {
   else designRefresh();
 });
 
+// ---------- ideathon: Assessments ------------------------------------------------------------
+// One answer sheet per team: every box saves on its own (several phones can answer different questions),
+// a moment after typing stops and when the box loses focus. Answers lock at the organiser's end time.
+const asTodo = (d) => ((d.assessments && d.assessments.open) || []).filter((a) => a.answered < a.total).length;
+
+function asBanners(d) {
+  const open = (d.assessments && d.assessments.open) || [];
+  return open.map((a) => html`<section class="card as-banner">
+    <span class="as-banner-icon">${icon('clipboard')}</span>
+    <div><strong>${a.answered >= a.total ? 'Answered' : 'New questions'}: ${a.title}</strong>
+      <small>${a.answered} of ${a.total} answered · closes in <b class="mono" data-countdown="${a.closes_at}"></b></small></div>
+    <a class="btn ${a.answered >= a.total ? '' : 'btn-primary'}" href="#/assessments">${a.answered >= a.total ? 'Review answers' : 'Answer now'}</a>
+  </section>`);
+}
+
+const asKey = (aid, qid) => `${aid}-${qid}`;
+const asField = (key) => document.getElementById(`as-a-${key}`);
+const asAnswerMap = (a) => new Map(a.answers.map((x) => [x.question_id, x.body]));
+const asFilled = (a) => {
+  const map = asAnswerMap(a);
+  return a.questions.filter((q) => {
+    const el = asField(asKey(a.id, q.id));
+    return String(el ? el.value : map.get(q.id) || '').trim() !== '';
+  }).length;
+};
+const asCountChip = (a) => chip(asFilled(a) === a.questions.length ? 'selected' : 'pending', `${asFilled(a)}/${a.questions.length} answered`);
+
+function asSheet(a) {
+  const map = asAnswerMap(a);
+  return html`<section class="card as-sheet" data-as="${a.id}">
+    <div class="as-sheet-head">
+      <div class="as-sheet-title"><h2 class="section-title">${a.title}</h2>
+        <p class="small muted">${a.open
+          ? html`Answers lock at <strong>${fmtTime(a.closes_at)}</strong>.`
+          : html`Time’s up: answers locked at ${fmtDateTime(a.closes_at)}.`}</p></div>
+      <div class="row">
+        ${a.open ? html`<span class="as-timer">${icon('clock')}<b class="mono" data-countdown="${a.closes_at}"></b></span>` : chip('completed', 'Locked')}
+        <span data-as-count="${a.id}">${asCountChip(a)}</span>
+      </div>
+    </div>
+    ${a.instructions ? html`<div class="callout">${icon('info')}<span>${richText(a.instructions)}</span></div>` : ''}
+    <ol class="as-qs">${a.questions.map((q, i) => {
+      const key = asKey(a.id, q.id);
+      const ans = map.get(q.id) || '';
+      return html`<li class="as-q">
+        <div class="as-qtext" id="as-qt-${key}"><span class="as-qno">Q${i + 1}</span><span>${richText(q.body)}</span></div>
+        ${a.open
+          ? html`<textarea class="textarea" id="as-a-${key}" data-ans="${key}" aria-labelledby="as-qt-${key}" rows="4" maxlength="5000" placeholder="Your team’s answer">${ans}</textarea>
+             <p class="small muted dt-state" data-state="as-${key}">${ans ? 'Saved' : ''}</p>`
+          : html`<div class="as-answer">${ans ? richText(ans) : html`<span class="faint">No answer</span>`}</div>`}
+      </li>`;
+    })}</ol>
+    ${a.open ? html`<div class="row-between as-foot"><span class="small muted">Answers save as you type. Anyone in your team can add to them until ${fmtTime(a.closes_at)}.</span>
+      <button type="button" class="btn btn-primary" data-as-save="${a.id}">${icon('check')}Save answers</button></div>` : ''}
+  </section>`;
+}
+
+const asTimers = new Map();
+const asSending = new Map();
+const asLocking = new Set();
+function asState(key, text, kind = '') {
+  const el = $(`[data-state="as-${key}"]`, main);
+  if (!el) return;
+  el.textContent = text;
+  if (kind) el.dataset.kind = kind;
+  else delete el.dataset.kind;
+}
+function asPaintCount(aid) {
+  const a = (app.as || []).find((x) => x.id === aid);
+  const el = $(`[data-as-count="${aid}"]`, main);
+  if (a && el) setHTML(el, asCountChip(a));
+}
+
+function asSave(key) {
+  clearTimeout(asTimers.get(key));
+  asTimers.delete(key);
+  const el = asField(key);
+  if (!el || el.value === el.defaultValue) return Promise.resolve(true);
+  if (asSending.has(key)) return asSending.get(key).then(() => asSave(key));
+  const value = el.value;
+  const [aid, qid] = key.split('-').map(Number);
+  asState(key, 'Saving…');
+  const run = (async () => {
+    try {
+      await api(`/team/assessments/${aid}/answers/${qid}`, { method: 'PUT', body: { body: value } });
+      const cur = asField(key);
+      if (cur && cur.value === value) {
+        cur.defaultValue = value; // clean again: fresh server data may replace it
+        asState(key, value.trim() ? 'Saved' : 'Cleared', 'ok');
+      } else if (cur) {
+        asTimers.set(key, setTimeout(() => asSave(key), 600));
+      }
+      asPaintCount(aid);
+      return true;
+    } catch (err) {
+      asState(key, `Not saved: ${err.message || 'check your connection'}`, 'error');
+      if (err.status === 409 || err.status === 404) assessRefresh(); // time is up, turned off or the question changed
+      return false;
+    } finally {
+      asSending.delete(key);
+    }
+  })();
+  asSending.set(key, run);
+  return run;
+}
+const asDirty = () => $$('textarea[data-ans]', main).filter((el) => el.value !== el.defaultValue).map((el) => el.dataset.ans);
+const asFlush = () => Promise.all([...new Set([...asTimers.keys(), ...asDirty()])].map(asSave));
+
+function bindAssess() {
+  for (const el of $$('textarea[data-ans]', main)) {
+    const key = el.dataset.ans;
+    el.addEventListener('input', () => {
+      asState(key, 'Not saved yet');
+      clearTimeout(asTimers.get(key));
+      asTimers.set(key, setTimeout(() => asSave(key), 1500));
+      asPaintCount(Number(key.split('-')[0]));
+    });
+    el.addEventListener('blur', () => asSave(key));
+  }
+  for (const b of $$('[data-as-save]', main)) {
+    b.addEventListener('click', () =>
+      withBusy(b, async () => {
+        const results = await asFlush();
+        if (results.every(Boolean)) toast('All answers saved. You can still change them until time is up.', 'ok');
+        else toast('Some answers didn’t save. Check the message under each one.', 'error');
+      })
+    );
+  }
+}
+
+/** Fresh data: teammates' answers go into boxes nobody is typing in; other changes redraw the page. */
+const asShape = (list) => JSON.stringify((list || []).map((a) => [a.id, a.open, a.title, a.instructions, a.closes_at, a.questions.map((q) => [q.id, q.body])]));
+const assessRefresh = debounce(async () => {
+  if (app.view !== 'assessments') return;
+  let data;
+  try {
+    data = await api('/team/assessments');
+  } catch {
+    return;
+  }
+  if (app.view !== 'assessments') return;
+  clock.sync(data.serverTime);
+  if (asShape(data.assessments) !== asShape(app.as)) {
+    // Questions, timing or the list changed (or time is up): save what's typed, then redraw.
+    await asFlush().catch(() => {});
+    if (!data.assessments.length) return refresh(); // nothing left to show: back to the overview
+    return preserveInputs(main, render);
+  }
+  app.as = data.assessments;
+  for (const a of data.assessments) {
+    if (!a.open) continue;
+    const map = asAnswerMap(a);
+    for (const q of a.questions) {
+      const key = asKey(a.id, q.id);
+      const el = asField(key);
+      if (!el) continue;
+      const server = map.get(q.id) || '';
+      const busy = document.activeElement === el || el.value !== el.defaultValue || asTimers.has(key) || asSending.has(key);
+      if (!busy && el.value !== server) {
+        el.value = server;
+        el.defaultValue = server;
+        asState(key, server ? 'Updated from a teammate' : '');
+      }
+    }
+    asPaintCount(a.id);
+  }
+}, 400);
+
+// Answer saves aren't broadcast on the static site, so an open Assessments page checks for teammates' answers.
+// At the end time the boxes lock straight away; the page then redraws with the locked answers.
+setInterval(() => {
+  if (app.view !== 'assessments' || !app.as) return;
+  for (const a of app.as) {
+    if (a.open && Date.parse(a.closes_at) <= clock.now() && !asLocking.has(a.id)) {
+      asLocking.add(a.id);
+      for (const el of $$(`[data-as="${a.id}"] textarea`, main)) el.readOnly = true;
+      asFlush().finally(() => setTimeout(assessRefresh, 1500));
+    }
+  }
+}, 1000);
+setInterval(() => { if (app.view === 'assessments' && document.visibilityState === 'visible') assessRefresh(); }, 20000);
+document.addEventListener('visibilitychange', () => {
+  if (app.view !== 'assessments') return;
+  if (document.visibilityState === 'hidden') asFlush();
+  else assessRefresh();
+});
+
 function roundCard(r) {
   const head = html`<div><div class="round-no">Round ${r.number}${r.is_elimination ? '' : ' · no eliminations'}</div><h2 class="round-name">${r.name}</h2></div>`;
   if (!r.reached) {
@@ -862,6 +1067,7 @@ async function render() {
     scorecard: ideathon,
     idea: !ideathon || !d.submission.enabled,
     design: !ideathon || !(d.design && d.design.enabled),
+    assessments: !ideathon || !(d.assessments && d.assessments.on),
   };
   if (hidden[view]) {
     location.hash = '#/overview';
@@ -885,6 +1091,7 @@ async function render() {
 // so a box someone is typing in is never replaced (that would close the keyboard on phones).
 async function redraw() {
   if (app.view === 'design' && app.data.design && app.data.design.enabled) return designRefresh();
+  if (app.view === 'assessments' && app.data.assessments && app.data.assessments.on) return assessRefresh();
   await preserveInputs(main, render);
 }
 
@@ -899,6 +1106,7 @@ const refresh = debounce(async () => {
 
 function onRoute(view, params) {
   if (app.view === 'design' && view !== 'design') dtFlush(); // save what was typed before the boxes go away
+  if (app.view === 'assessments' && view !== 'assessments') asFlush().then(() => refresh()); // and update the counts
   const changed = view !== app.view;
   app.view = view;
   app.params = params;
@@ -954,6 +1162,21 @@ function onRoute(view, params) {
       },
       rounds: refresh,
       design: designRefresh,
+      async assessment(e) {
+        if (e.kind === 'answer') return assessRefresh(); // a teammate's save (laptop server only)
+        // Live signals carry no text: ask the server what changed.
+        try {
+          await loadCore();
+          const a = ((app.data.assessments && app.data.assessments.open) || []).find((x) => x.id === Number(e.id));
+          const go = { label: 'Answer', onClick: () => (location.hash = '#/assessments') };
+          if (e.kind === 'opened' && a) toast(`${a.title}. Answers close at ${fmtTime(a.closes_at)}.`, 'ember', { title: 'New questions from the organisers', action: go });
+          else if (e.kind === 'time' && a) toast(`Answers for “${a.title}” now close at ${fmtTime(a.closes_at)}.`, 'info', { title: 'Assessments' });
+          else if (e.kind === 'updated' && app.view === 'assessments') toast('The organisers updated the questions.', 'info', { title: 'Assessments' });
+          await redraw();
+        } catch (err) {
+          toastError(err);
+        }
+      },
       schedule: refresh,
       settings: refresh,
       profile: refresh,

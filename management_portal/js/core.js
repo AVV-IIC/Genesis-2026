@@ -212,6 +212,8 @@ const ICONS = {
   bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 1-2.5A6 6 0 0 0 12 3z"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
   back: '<path d="M19 12H5M11 18l-6-6 6-6"/>',
+  up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   gavel: '<path d="m14 13-8.5 8.5a2.1 2.1 0 0 1-3-3L11 10"/><path d="m16 16 6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>',
   clipboard: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 12l2 2 4-4"/>',
   award: '<circle cx="12" cy="9" r="6"/><path d="m8.5 14-1.5 7 5-3 5 3-1.5-7"/>',
