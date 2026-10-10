@@ -387,6 +387,43 @@ export async function live(handlers, indicators) {
     }
   };
 
+  // The "genesis" channel is public, so anyone holding the (public) site key could send it messages.
+  // Treat every message only as a hint that something may have changed: keep plain ids and flags (never text,
+  // which pages could otherwise show), check sign-outs with the server, and cap how often pages refresh.
+  const SAFE = ['id', 'team_id', 'round_id', 'round', 'kind', 'status', 'priority'];
+  const clean = (data) => {
+    const out = {};
+    for (const k of SAFE) {
+      const v = data && data[k];
+      if (typeof v === 'number' || (typeof v === 'string' && v.length <= 40)) out[k] = v;
+    }
+    return out;
+  };
+  let queue = new Map();
+  let flushTimer = null;
+  let lastFlush = 0;
+  let recent = []; // times of recent flushes: a steady stream means a flood, so slow down
+  const flush = () => {
+    flushTimer = null;
+    lastFlush = Date.now();
+    recent = recent.filter((t) => lastFlush - t < 10000).concat(lastFlush);
+    const items = [...queue.values()];
+    queue = new Map();
+    if (items.length > 40) return handlers.reconnect?.(); // a flood: one full refresh instead
+    for (const [type, data] of items) handlers[type](data);
+  };
+  const deliver = (type, data) => {
+    queue.set(`${type}:${data.id ?? ''}:${data.team_id ?? ''}:${data.round_id ?? ''}`, [type, data]);
+    const gap = recent.length > 6 ? 5000 : 1000;
+    if (!flushTimer) flushTimer = setTimeout(flush, Math.max(0, gap - (Date.now() - lastFlush)));
+  };
+  let lastSignOutCheck = 0;
+  const checkSignedOut = () => {
+    if (Date.now() - lastSignOutCheck < 5000) return;
+    lastSignOutCheck = Date.now();
+    rpc('api_me').catch((err) => { if (err.status === 401) handlers['signed-out']?.({}); });
+  };
+
   let connected = false;
   let wasDown = false;
   let poll = null;
@@ -400,9 +437,9 @@ export async function live(handlers, indicators) {
     const channel = sb.channel('genesis');
     channel.on('broadcast', { event: 'change' }, ({ payload }) => {
       const { type, target, data } = payload || {};
-      if (!type || !matches(target)) return;
-      const h = handlers[type];
-      if (h) h(data || {});
+      if (typeof type !== 'string' || type === 'reconnect' || !Object.hasOwn(handlers, type) || !matches(target)) return;
+      if (type === 'signed-out') return checkSignedOut(); // only if the server agrees this session has ended
+      deliver(type, clean(data));
     });
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {

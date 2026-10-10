@@ -686,6 +686,8 @@ function bindDesign() {
     const b = e.target.closest('[data-dt-advance]');
     if (b && !b.disabled) dtAdvance(b);
   });
+  // The bar was drawn before these boxes existed (it reads them), so draw it again now.
+  dtPaintNext();
 }
 
 /** Fresh data from teammates' devices, without touching a box someone is typing in. */
@@ -936,10 +938,17 @@ function onRoute(view, params) {
         }
       },
       announcements: refresh,
-      results(e) {
+      async results(e) {
         if (e.kind === 'published') {
-          toast(e.round ? `Round ${e.round} results are out.` : 'The final results are out.', 'ember', { title: 'Results published', action: { label: 'View', onClick: () => (location.hash = '#/overview') } });
-          app.reveal = true;
+          // Check with the server before celebrating (live signals are only hints).
+          try {
+            const d = await api('/team/overview');
+            const out = d.competition === 'ideathon' ? d.result && d.result.published : (d.journey || []).some((r) => r.number === Number(e.round) && r.published);
+            if (out) {
+              toast(e.round ? `Round ${e.round} results are out.` : 'The final results are out.', 'ember', { title: 'Results published', action: { label: 'View', onClick: () => (location.hash = '#/overview') } });
+              app.reveal = true;
+            }
+          } catch { /* the refresh below shows whatever is true */ }
         }
         refresh();
       },

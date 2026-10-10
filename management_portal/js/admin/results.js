@@ -79,7 +79,7 @@ export function leave() {
 
 export function onEvent(type, data, ctx) {
   // Don't re-render under someone typing an award.
-  if (S.timers.size) return true;
+  if (S.timers.size || chains.size) return true;
   if (live.includes(type)) ctx.rerender();
   return true;
 }
@@ -119,11 +119,20 @@ function schedule(tr, delay) {
   S.timers.set(id, setTimeout(() => save(tr), delay));
 }
 
-async function save(tr) {
+// One team's saves run one after another, so an older save can't land last and overwrite a newer one.
+const chains = new Map();
+function save(tr) {
   const id = Number(tr.dataset.team);
   clearTimeout(S.timers.get(id));
   S.timers.delete(id);
-  const [award, note] = $$('input', tr);
+  const run = (chains.get(id) || Promise.resolve()).then(() => saveNow(tr, id));
+  chains.set(id, run);
+  run.then(() => { if (chains.get(id) === run) chains.delete(id); });
+  return run;
+}
+
+async function saveNow(tr, id) {
+  const [award, note] = $$('input', tr); // read when the save runs: always the latest text
   setSaveState(tr, 'saving');
   try {
     const res = await api(`/admin/results/${id}`, { method: 'PUT', body: { award: award.value, result_note: note.value } });
@@ -140,8 +149,9 @@ async function flush() {
   for (const [id, t] of [...S.timers]) {
     clearTimeout(t);
     const tr = $(`tr[data-team="${id}"]`);
-    if (tr) await save(tr);
+    if (tr) save(tr);
   }
+  await Promise.all([...chains.values()]);
 }
 
 function publish(ctx) {

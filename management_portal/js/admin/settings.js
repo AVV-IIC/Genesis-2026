@@ -40,7 +40,7 @@ export async function render(ctx, params, seq) {
     ctx.main,
     html`
     <div class="page-head"><div><h1 class="page-title">Settings</h1><p>${label} details, what team leaders can see, organiser accounts and your data. These settings only affect the ${label}.</p></div></div>
-    <div class="two-col" style="margin-top:0;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)">
+    <div class="two-col cols-settings">
       <form class="card stack" id="st-event" novalidate>
         <h2 class="section-title">Event</h2>
         <label class="field"><span>Event name</span><input class="input" name="event_name" id="st-name" value="${s.event_name}" maxlength="80" required></label>

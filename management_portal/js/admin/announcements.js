@@ -81,7 +81,7 @@ export async function render(ctx, params, seq) {
     ctx.main,
     html`
     <div class="page-head"><div><h1 class="page-title">Announcements</h1><p>Posts appear instantly on the screens you send them to, with a notification. “Everyone” reaches both competitions.</p></div></div>
-    <div class="two-col" style="margin-top:0;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)">
+    <div class="two-col cols-compose">
       <form class="card stack" id="an-form" novalidate>
         <h2 class="section-title">Compose</h2>
         ${fields({}, teamsCache, 'an')}

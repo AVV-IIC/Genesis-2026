@@ -12,13 +12,14 @@ const S = {
   q: '',
   timers: new Map(), // teamId -> timeout
   saving: new Set(),
+  chains: new Map(), // teamId -> the last queued save, so a team's saves run one after another
   openNotes: new Set(),
   needsRerender: false,
   settingsOpen: false,
   ctx: null,
 };
 
-const busy = () => S.timers.size > 0 || S.saving.size > 0;
+const busy = () => S.timers.size > 0 || S.saving.size > 0 || S.chains.size > 0;
 addEventListener('beforeunload', (e) => {
   if (busy()) {
     e.preventDefault();
@@ -59,8 +60,11 @@ export function onEvent(type, data, ctx) {
     const apply = (row) => {
       if (!row || !S.round || data.round_id !== S.round.id) return;
       const i = S.rows.findIndex((r) => r.team_id === data.team_id);
+      const before = i >= 0 ? S.rows[i] : null;
+      const changed = !before || before.total !== row.total || before.status !== row.status
+        || JSON.stringify(before.scores) !== JSON.stringify(row.scores) || JSON.stringify(before.judges) !== JSON.stringify(row.judges);
       if (i >= 0) S.rows[i] = row;
-      if (!S.timers.has(data.team_id) && !S.saving.has(data.team_id)) patchRow(row, data.by !== ctx.me.name);
+      if (!S.timers.has(data.team_id) && !S.saving.has(data.team_id) && !S.chains.has(data.team_id)) patchRow(row, changed);
       drawProgress();
     };
     // Live signals from the database carry no scores; fetch the row.
@@ -335,9 +339,23 @@ function schedule(tr, delay = 700) {
 }
 
 // `round` is the round the edit was made in, even if the view has moved on.
-async function save(teamId, tr, round = S.round) {
+// A team's saves are queued: typing in one box and moving to the next fires several saves, and
+// running them at once could let an older one land last and overwrite newer marks.
+function save(teamId, tr, round = S.round) {
   S.timers.delete(teamId);
-  const { valid, body } = readRow(tr, round);
+  const run = (S.chains.get(teamId) || Promise.resolve()).then(() => saveNow(teamId, tr, round));
+  const tail = run.catch(() => {});
+  S.chains.set(teamId, tail);
+  tail.then(() => {
+    if (S.chains.get(teamId) !== tail) return;
+    S.chains.delete(teamId);
+    if (!busy() && S.needsRerender) S.ctx?.rerender();
+  });
+  return run;
+}
+
+async function saveNow(teamId, tr, round) {
+  const { valid, body } = readRow(tr, round); // read when the save runs, so it sends the latest marks
   if (!valid) return setSaveState(tr, 'error', 'A score is outside the allowed range');
   S.saving.add(teamId);
   setSaveState(tr, 'saving');
@@ -359,7 +377,6 @@ async function save(teamId, tr, round = S.round) {
     toastError(err);
   } finally {
     S.saving.delete(teamId);
-    if (!busy() && S.needsRerender) S.ctx?.rerender();
   }
 }
 
@@ -576,11 +593,11 @@ function autoSelect(ctx) {
 }
 
 async function flushSaves() {
-  const pending = [...S.timers.entries()];
-  for (const [teamId, t] of pending) {
+  for (const [teamId, t] of [...S.timers.entries()]) {
     clearTimeout(t.timer);
-    await save(teamId, t.tr, t.round);
+    save(teamId, t.tr, t.round);
   }
+  await Promise.all([...S.chains.values()]); // wait for every queued save, not just the newest
 }
 
 function publish(ctx) {

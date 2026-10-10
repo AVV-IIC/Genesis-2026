@@ -92,7 +92,7 @@ const VIEWS = {
       <div class="hero-grid judge-hero">
         <section class="card hero-dial" aria-label="Event clock">
           <div data-dial></div>
-          <p class="event-line">${eventRangeText() || 'The organisers will publish the event timing soon.'}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
+          <p class="event-line">${eventRangeText() || 'The 24-hour clock starts when the organisers press Start.'}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
         </section>
         <section class="card stack">
           ${openRound
