@@ -1,4 +1,4 @@
-import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, clock, fmtDateTime, COMP_LABEL } from '../core.js';
+import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, clock, fmtDateTime, COMP_LABEL, EVENT_HOURS } from '../core.js';
 
 /** Where the event clock stands: unset (never started), running, or ended. */
 export function clockState(s) {
@@ -20,11 +20,11 @@ const RESET = {
   },
 };
 
-function clockLine(s) {
+function clockLine(s, hours) {
   const st = clockState(s);
   if (st === 'running') return `Running since ${fmtDateTime(s.event_start)} · ends ${fmtDateTime(s.event_end)}.`;
   if (st === 'ended') return `Finished at ${fmtDateTime(s.event_end)}.`;
-  return 'Not started. Press Start on the dashboard to begin the 24 hours.';
+  return `Not started. Press Start on the dashboard to begin the ${hours} hours.`;
 }
 
 export async function render(ctx, params, seq) {
@@ -46,7 +46,7 @@ export async function render(ctx, params, seq) {
         <label class="field"><span>Event name</span><input class="input" name="event_name" id="st-name" value="${s.event_name}" maxlength="80" required></label>
         <label class="field"><span>Tagline <span class="hint">Shown on the sign-in page</span></span><input class="input" name="tagline" id="st-tagline" value="${s.tagline}" maxlength="160"></label>
         <label class="field"><span>Venue</span><input class="input" name="venue" id="st-venue" value="${s.venue}" maxlength="160" placeholder="e.g. Main Auditorium, ABC College"></label>
-        <p class="small faint" style="margin-top:-6px">The 24-hour clock starts when an organiser presses <strong>Start</strong> on the dashboard.</p>
+        <p class="small faint" style="margin-top:-6px">The ${EVENT_HOURS[comp]}-hour clock starts when an organiser presses <strong>Start</strong> on the dashboard.</p>
         ${ideathon
           ? html`<label class="field"><span>Idea submission deadline <span class="hint">Optional. Teams can’t edit their idea after this</span></span><input class="input" type="datetime-local" name="submission_deadline" id="st-deadline" value="${toLocalInput(s.submission_deadline)}" style="max-width:280px"></label>`
           : ''}
@@ -107,7 +107,7 @@ export async function render(ctx, params, seq) {
           <hr class="divider">
           <h3 style="font-size:15px;margin-bottom:4px;color:var(--bad)">Danger zone</h3>
           <div class="clock-zone">
-            <p><strong>Event clock</strong><br><span class="small muted">${clockLine(s)}</span></p>
+            <p><strong>Event clock</strong><br><span class="small muted">${clockLine(s, EVENT_HOURS[comp])}</span></p>
             <div class="row">
               ${clockState(s) === 'running' ? html`<button type="button" class="btn btn-sm btn-danger" data-clock="stop">${icon('x')}Stop the clock</button>` : ''}
               ${clockState(s) !== 'unset' ? html`<button type="button" class="btn btn-sm btn-danger" data-clock="reset">${icon('refresh')}Reset the clock</button>` : ''}
@@ -222,8 +222,8 @@ export async function render(ctx, params, seq) {
         danger: true,
         content: html`
           <p class="muted">${stop
-            ? `The ${label} countdown ends now on every screen, and teams see “Time’s up”. To run it again you’d have to reset the clock and press Start, which begins a fresh 24 hours.`
-            : `The ${label} clock goes back to “Not started” and teams stop seeing a countdown. The Start button comes back on the dashboard; pressing it begins a fresh 24 hours.`}</p>
+            ? `The ${label} countdown ends now on every screen, and teams see “Time’s up”. To run it again you’d have to reset the clock and press Start, which begins a fresh ${EVENT_HOURS[comp]} hours.`
+            : `The ${label} clock goes back to “Not started” and teams stop seeing a countdown. The Start button comes back on the dashboard; pressing it begins a fresh ${EVENT_HOURS[comp]} hours.`}</p>
           <label class="field"><span>Type ${word} to confirm</span><input class="input mono" name="confirm" autocomplete="off" required></label>`,
         async onSubmit(v) {
           if (v.confirm !== word) throw new Error(`Type ${word} in capitals to confirm.`);

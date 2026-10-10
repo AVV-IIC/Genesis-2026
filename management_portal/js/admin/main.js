@@ -1,6 +1,6 @@
 import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, connectLive, startRouter, preserveInputs,
-  debounce, signOut, guardPage, download, withBusy, COMP_LABEL,
+  debounce, signOut, guardPage, download, withBusy, COMP_LABEL, EVENT_HOURS,
 } from '../core.js';
 import { setEventTimes } from '../dial.js';
 import { empty, scope } from './shared.js';
@@ -80,7 +80,7 @@ async function refreshMeta() {
   scope.submissions = ctx.meta.competition === 'ideathon' && ctx.meta.settings.submissions_enabled === '1';
   document.body.dataset.comp = ctx.meta.competition;
   clock.sync(ctx.meta.serverTime);
-  setEventTimes({ ...ctx.meta.settings, markers: ctx.meta.markers });
+  setEventTimes({ ...ctx.meta.settings, markers: ctx.meta.markers, hours: EVENT_HOURS[ctx.meta.competition] });
   renderNav();
 }
 

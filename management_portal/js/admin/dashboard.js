@@ -1,4 +1,4 @@
-import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, fmtTime, plural, toast, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, COMP_LABEL } from '../core.js';
+import { $, api, html, setHTML, icon, timeAgo, fmtDateTime, fmtTime, plural, toast, EVENT_HOURS, STATE_LABEL, TICKET_LABEL, PRIORITY_LABEL, COMP_LABEL } from '../core.js';
 import { mountDial, eventRangeText } from '../dial.js';
 import { chip, empty } from './shared.js';
 import { openComposer } from './announcements.js';
@@ -15,6 +15,7 @@ export async function render(ctx, params, seq) {
   const s = d.stats;
   const ideathon = d.competition === 'ideathon';
   const label = COMP_LABEL[d.competition];
+  const hours = EVENT_HOURS[d.competition];
   const clockNow = clockState(d.settings);
 
   setHTML(
@@ -35,7 +36,7 @@ export async function render(ctx, params, seq) {
     ${clockNow === 'unset'
       ? html`<section class="card start-card">
           <div><h2 class="section-title">Ready for the inauguration?</h2>
-            <p class="muted">Opens a full-screen stage for the projector. The chief guest presses its big Start button: a 3-2-1 countdown, and every team’s 24-hour clock starts at the same moment.</p></div>
+            <p class="muted">Opens a full-screen stage for the projector. The chief guest presses its big Start button: a 3-2-1 countdown, and every team’s ${hours}-hour clock starts at the same moment.</p></div>
           <button type="button" class="btn btn-primary btn-start" id="d-start">${icon('sparkle')}Start the ${label}</button>
         </section>`
       : clockNow === 'ended'
@@ -92,13 +93,14 @@ export async function render(ctx, params, seq) {
     const started = await openStage({
       eventName: d.settings.event_name,
       label,
+      hours,
       onStart: async () => {
         await api('/admin/clock', { method: 'POST', body: { action: 'start' } });
         await ctx.refreshMeta(); // the stage's countdown reads the fresh clock
       },
     });
     if (started) {
-      toast(`The ${label} has started. The 24-hour clock is running.`, 'ok');
+      toast(`The ${label} has started. The ${hours}-hour clock is running.`, 'ok');
       ctx.rerender();
     }
   });

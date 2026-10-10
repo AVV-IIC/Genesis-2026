@@ -2,11 +2,13 @@
 // the page's dawn glow (--dawn) from one timer.
 import { clock, fmtDateTime, fmtTime, fmtDay } from './core.js';
 
-const state = { start: null, end: null, markers: [], dials: new Set(), horizons: new Set() };
+const state = { start: null, end: null, hours: 24, markers: [], dials: new Set(), horizons: new Set() };
 let timer = null;
 const listeners = new Set();
 
-export function setEventTimes({ event_start, event_end, markers = [] } = {}) {
+// `hours` is how long the event will run once started; the dial shows it before Start is pressed.
+export function setEventTimes({ event_start, event_end, markers = [], hours = 24 } = {}) {
+  state.hours = hours;
   state.start = event_start ? Date.parse(event_start) : null;
   state.end = event_end ? Date.parse(event_end) : null;
   state.markers = markers || [];
@@ -100,8 +102,8 @@ export function mountDial(el) {
 }
 
 function drawMarks(el) {
-  const total = state.start && state.end ? (state.end - state.start) / 3600000 : 24;
-  const n = Math.max(12, Math.min(48, Math.round(total) || 24));
+  const total = state.start && state.end ? (state.end - state.start) / 3600000 : state.hours;
+  const n = Math.max(12, Math.min(48, Math.round(total) || state.hours));
   const quarter = n % 4 === 0 ? n / 4 : null;
   let ticks = '';
   for (let i = 0; i < n; i++) {

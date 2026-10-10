@@ -1,7 +1,7 @@
 import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, formValues, withBusy, confirmDialog,
   connectLive, startRouter, preserveInputs, debounce, signOut, richText, timeAgo, fmtTime, fmtDay,
-  fmtScore, fmtDateTime, STATE_LABEL, TICKET_LABEL, guardPage, HOME, COMP_LABEL,
+  fmtScore, fmtDateTime, STATE_LABEL, TICKET_LABEL, guardPage, HOME, COMP_LABEL, EVENT_HOURS,
 } from '../core.js';
 import { setEventTimes, mountDial, eventRangeText, fmtDuration, phase, onPhaseChange } from '../dial.js';
 import { celebrate } from '../launch.js';
@@ -16,7 +16,7 @@ guardPage('team');
 // Inauguration: when the organisers press Start while this page is open, celebrate.
 onPhaseChange((kind, prev) => {
   if (kind === 'live' && (prev === 'unset' || prev === 'before') && app.data) {
-    celebrate({ eventName: app.data.event.event_name, label: COMP_LABEL[app.data.competition] });
+    celebrate({ eventName: app.data.event.event_name, label: COMP_LABEL[app.data.competition], hours: EVENT_HOURS[app.data.competition] });
   }
 });
 setHTML($('#mark'), MARK);
@@ -26,7 +26,7 @@ $('#signout').addEventListener('click', signOut);
 async function loadCore() {
   app.data = await api('/team/overview');
   clock.sync(app.data.serverTime);
-  setEventTimes({ ...app.data.event, markers: app.data.markers });
+  setEventTimes({ ...app.data.event, markers: app.data.markers, hours: EVENT_HOURS[app.data.competition] });
   renderChrome();
 }
 
@@ -190,7 +190,7 @@ const VIEWS = {
       <div class="hero-grid">
         <section class="card hero-dial" aria-label="Event clock">
           <div data-dial></div>
-          <p class="event-line">${eventRangeText() || 'The 24-hour clock starts when the organisers press Start.'}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
+          <p class="event-line">${eventRangeText() || `The ${EVENT_HOURS[d.competition]}-hour clock starts when the organisers press Start.`}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
         </section>
         <section class="card standing${app.reveal ? ' reveal' : ''}" data-kind="${s.kind}" aria-live="polite">
           <div class="standing-meta">

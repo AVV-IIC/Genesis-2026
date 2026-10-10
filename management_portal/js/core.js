@@ -223,6 +223,8 @@ const ICONS = {
 };
 
 export const COMP_LABEL = { hackathon: 'Hackathon', ideathon: 'Ideathon' };
+// How long each competition runs once an organiser presses Start (the database sets the end time).
+export const EVENT_HOURS = { hackathon: 20, ideathon: 24 };
 export const icon = (name) =>
   raw(`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`);
 

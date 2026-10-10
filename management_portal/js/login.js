@@ -1,5 +1,5 @@
 // Sign-in: choose Hackathon or Ideathon first, then how you're signing in.
-import { $, $$, api, clock, html, setHTML, icon, STATIC, hasSession, COMP_LABEL } from './core.js';
+import { $, $$, api, clock, html, setHTML, icon, STATIC, hasSession, COMP_LABEL, EVENT_HOURS } from './core.js';
 import { setEventTimes, mountHorizon, eventRangeText, statusLine } from './dial.js';
 
 const form = $('#login-form');
@@ -18,7 +18,7 @@ const FIELDS = {
   judge: { label: 'Judge ID', placeholder: { hackathon: 'e.g. JDG001' }, caps: true, foot: 'Your judge ID and password come from the organisers.' },
   admin: { label: 'Username', placeholder: { hackathon: 'e.g. admin1', ideathon: 'e.g. ideaadmin1' }, caps: false, foot: 'Organiser accounts are set up by the event team.' },
 };
-const FORMAT = { hackathon: '4 rounds · 3 with eliminations', ideathon: '24 hours · one idea · no rounds' };
+const FORMAT = { hackathon: '20 hours · 4 rounds · 3 with eliminations', ideathon: '24 hours · one idea · no rounds' };
 
 let info = null;
 let competition = null;
@@ -79,7 +79,7 @@ function renderHero() {
   const details = $('#hero-details');
   if (!competition || !info) {
     setHTML($('#wordmark'), html`<span>Genesis</span><span>Hackathon · Ideathon</span>`);
-    $('#tagline').textContent = 'Two 24-hour competitions, running side by side.';
+    $('#tagline').textContent = 'A 20-hour Hackathon and a 24-hour Ideathon, running side by side.';
     details.hidden = true;
     document.title = 'Sign in · Genesis';
     return;
@@ -88,12 +88,10 @@ function renderHero() {
   setHTML($('#wordmark'), html`<span>Genesis</span><span>${COMP_LABEL[competition]}</span>`);
   $('#tagline').textContent = c.tagline;
   document.title = `Sign in · ${c.event_name}`;
-  setEventTimes(c);
+  setEventTimes({ ...c, hours: EVENT_HOURS[competition] });
   details.hidden = false;
-  if (c.event_start && c.event_end) {
-    const hours = (Date.parse(c.event_end) - Date.parse(c.event_start)) / 3600000;
-    setHTML($('#horizon-scale'), [0, 1, 2, 3, 4].map((k) => html`<span>${Math.round((hours * k) / 4)}h</span>`));
-  }
+  const hours = c.event_start && c.event_end ? (Date.parse(c.event_end) - Date.parse(c.event_start)) / 3600000 : EVENT_HOURS[competition];
+  setHTML($('#horizon-scale'), [0, 1, 2, 3, 4].map((k) => html`<span>${Math.round((hours * k) / 4)}h</span>`));
   const facts = [];
   const range = eventRangeText();
   if (range) facts.push(html`<div><b>When</b>${range}</div>`);

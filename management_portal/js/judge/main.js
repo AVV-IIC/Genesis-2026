@@ -2,7 +2,7 @@
 // assigned to them while a round is open for judging. Marks save as you type.
 import {
   $, $$, api, html, raw, setHTML, icon, MARK, clock, toast, toastError, formModal, withBusy,
-  connectLive, startRouter, preserveInputs, debounce, signOut, timeAgo, fmtScore, firstName, STATE_LABEL, guardPage, HOME,
+  connectLive, startRouter, preserveInputs, debounce, signOut, timeAgo, fmtScore, firstName, STATE_LABEL, guardPage, HOME, EVENT_HOURS,
 } from '../core.js';
 import { setEventTimes, mountDial, eventRangeText, onPhaseChange } from '../dial.js';
 import { celebrate } from '../launch.js';
@@ -18,7 +18,7 @@ guardPage('judge');
 // Inauguration: when the organisers press Start while this page is open, celebrate.
 onPhaseChange((kind, prev) => {
   if (kind === 'live' && (prev === 'unset' || prev === 'before') && app.data) {
-    celebrate({ eventName: app.data.event.event_name, label: 'Hackathon' });
+    celebrate({ eventName: app.data.event.event_name, label: 'Hackathon', hours: EVENT_HOURS.hackathon });
   }
 });
 setHTML($('#mark'), MARK);
@@ -37,7 +37,7 @@ addEventListener('beforeunload', (e) => {
 async function loadCore() {
   app.data = await api('/judge/overview');
   clock.sync(app.data.serverTime);
-  setEventTimes({ ...app.data.event, markers: app.data.markers });
+  setEventTimes({ ...app.data.event, markers: app.data.markers, hours: EVENT_HOURS.hackathon });
   renderChrome();
 }
 
@@ -92,7 +92,7 @@ const VIEWS = {
       <div class="hero-grid judge-hero">
         <section class="card hero-dial" aria-label="Event clock">
           <div data-dial></div>
-          <p class="event-line">${eventRangeText() || 'The 24-hour clock starts when the organisers press Start.'}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
+          <p class="event-line">${eventRangeText() || `The ${EVENT_HOURS.hackathon}-hour clock starts when the organisers press Start.`}${d.event.venue ? html`<br>${d.event.venue}` : ''}</p>
         </section>
         <section class="card stack">
           ${openRound

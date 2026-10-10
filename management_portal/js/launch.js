@@ -1,5 +1,5 @@
 // Inauguration: the full-screen stage behind the dashboard's Start button (made for the projector),
-// and the shorter celebration every open team and judge screen plays when the 24-hour clock starts.
+// and the shorter celebration every open team and judge screen plays when the event clock starts.
 import { $, html, setHTML, icon } from './core.js';
 import { phaseText } from './dial.js';
 
@@ -113,7 +113,7 @@ function unmount(el, stopConfetti) {
  * The inauguration stage. Pressing its big button counts down 3-2-1, then calls onStart()
  * (which starts the clock on the server) and lights everything up. Resolves true once started.
  */
-export function openStage({ eventName, label, onStart }) {
+export function openStage({ eventName, label, hours = 24, onStart }) {
   return new Promise((resolve) => {
     const el = mount('launch-stage', html`
       <button type="button" class="launch-close" data-close>${icon('x')}Not yet</button>
@@ -128,7 +128,7 @@ export function openStage({ eventName, label, onStart }) {
         <div class="launch-bulb"><span class="launch-glow" aria-hidden="true"></span><img src="img/logo.png" alt="" width="352" height="568"></div>
         <p class="launch-eyebrow" data-eyebrow>Inauguration</p>
         <h1 class="launch-title" id="launch-title">${eventName}</h1>
-        <p class="launch-sub" data-sub>The 24 hours begin the moment this button is pressed.</p>
+        <p class="launch-sub" data-sub>The ${hours} hours begin the moment this button is pressed.</p>
         <div class="launch-action"><button type="button" class="launch-btn" data-go><span>Start</span></button></div>
         <div class="launch-count" data-count aria-live="assertive"></div>
         <div class="launch-clock" data-clock hidden><span data-clock-label></span><b data-clock-time></b><small data-clock-sub></small></div>
@@ -187,7 +187,7 @@ export function openStage({ eventName, label, onStart }) {
       el.classList.remove('is-counting');
       el.classList.add('is-live');
       $('[data-eyebrow]', el).textContent = 'We’re live';
-      $('[data-sub]', el).textContent = `The ${label} has begun. Every team’s 24 hours start now.`;
+      $('[data-sub]', el).textContent = `The ${label} has begun. Every team’s ${hours} hours start now.`;
       if (!REDUCED) stopConfetti = confetti($('.launch-confetti', el));
       const clock = $('[data-clock]', el);
       clock.hidden = false;
@@ -207,14 +207,14 @@ export function openStage({ eventName, label, onStart }) {
 }
 
 /** The short version for team and judge screens: plays when the clock starts while the page is open. */
-export function celebrate({ eventName, label }) {
+export function celebrate({ eventName, label, hours = 24 }) {
   if ($('.launch')) return;
   const el = mount('launch-mini is-live', html`
     <div class="launch-center">
       <div class="launch-bulb"><span class="launch-glow" aria-hidden="true"></span><img src="img/logo.png" alt="" width="352" height="568"></div>
       <p class="launch-eyebrow">We’re live</p>
       <h1 class="launch-title">${eventName}</h1>
-      <p class="launch-sub">The ${label} has begun. Your 24 hours start now. Good luck!</p>
+      <p class="launch-sub">The ${label} has begun. Your ${hours} hours start now. Good luck!</p>
       <button type="button" class="launch-done" data-done>Let’s go${icon('arrow')}</button>
     </div>`);
   el.setAttribute('aria-label', `${eventName} has begun`);
