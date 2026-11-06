@@ -199,7 +199,8 @@ async function saveNow(tr, id) {
   const note = $(`#nt-${id}`, tr); // read when the save runs: always the latest state
   setSaveState(tr, 'saving');
   try {
-    const res = await api(`/admin/results/${id}`, { method: 'PUT', body: { awards: t.awards.slice(), result_note: note ? note.value : t.result_note } });
+    // `award` (one per line) is for a database that hasn't been updated yet; newer ones use `awards`.
+    const res = await api(`/admin/results/${id}`, { method: 'PUT', body: { awards: t.awards.slice(), award: t.awards.join('\n'), result_note: note ? note.value : t.result_note } });
     Object.assign(t, { award: res.team.award, result_note: res.team.result_note });
     setSaveState(tr, S.timers.has(id) ? 'dirty' : 'saved');
   } catch (err) {
