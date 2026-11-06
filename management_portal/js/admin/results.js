@@ -1,10 +1,9 @@
 // Ideathon results: one award and a note per team, published all at once.
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, plural } from '../core.js';
-import { chip, empty } from './shared.js';
+import { chip, empty, awardOptions } from './shared.js';
 
 export const live = ['teams', 'results', 'submission'];
 
-const AWARDS = ['Winner', 'First runner-up', 'Second runner-up', 'Best innovation', 'Best social impact', 'Best pitch', 'Special mention'];
 const S = { teams: [], published: false, timers: new Map(), q: '' };
 
 addEventListener('beforeunload', (e) => {
@@ -36,7 +35,7 @@ export async function render(ctx, params, seq) {
     <div style="margin-bottom:16px">${S.published
       ? html`<div class="callout">${icon('eye')}<span><strong>Published.</strong> Teams can see their results. Changes you make now show up for them straight away.</span></div>`
       : html`<div class="callout callout-warn">${icon('eyeOff')}<span><strong>Hidden from teams.</strong> ${awarded ? `${plural(awarded, 'team')} ${awarded === 1 ? 'has' : 'have'} an award so far.` : 'No awards given yet.'} Publish when you’re ready.</span></div>`}</div>
-    <datalist id="award-list">${AWARDS.map((a) => html`<option value="${a}"></option>`)}</datalist>
+    <datalist id="award-list">${awardOptions(ctx.settings).map((a) => html`<option value="${a}"></option>`)}</datalist>
     <div class="toolbar">
       <label class="search"><span class="sr-only">Search teams</span>${icon('search')}<input class="input" id="r-search" type="search" placeholder="Search teams" value="${S.q}"></label>
       <span class="grow"></span>
@@ -45,7 +44,7 @@ export async function render(ctx, params, seq) {
     <section class="card card-flush">
       ${S.teams.length
         ? html`<div class="table-wrap"><table class="table results-table">
-            <thead><tr><th>Team</th><th>Idea</th><th style="min-width:200px">Award</th><th style="min-width:260px">Note for the team</th><th><span class="sr-only">Save status</span></th></tr></thead>
+            <thead><tr><th>Team</th><th>Idea</th><th style="min-width:200px">Award <a class="small th-link" href="#/settings">Edit list</a></th><th style="min-width:260px">Note for the team</th><th><span class="sr-only">Save status</span></th></tr></thead>
             <tbody id="r-body"></tbody></table></div>`
         : empty('No teams yet', 'Add Ideathon teams on the Teams page first.', html`<a class="btn" href="#/teams">Go to Teams</a>`)}
     </section>`

@@ -827,6 +827,10 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .dt-sum-side { gap: 10px; }
 .dt-meter { display: inline-flex; align-items: center; gap: 8px; }
 .dt-meter .progress { width: 80px; }
+.award-edit { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
+.award-edit li { display: flex; gap: 6px; align-items: center; }
+.award-edit .input { flex: 1; min-width: 0; }
+.th-link { margin-left: 6px; font-weight: 500; text-transform: none; letter-spacing: 0; }
 
 /* ---------- Ideathon assessments ---------- */
 .as-card { display: grid; gap: 12px; }

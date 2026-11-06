@@ -1,4 +1,16 @@
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, clock, fmtDateTime, COMP_LABEL, EVENT_HOURS } from '../core.js';
+import { awardOptions } from './shared.js';
+
+// Unsaved edits to the Ideathon award list (kept across live redraws, dropped when leaving the page).
+let awardDraft = null;
+export function leave() {
+  awardDraft = null;
+}
+const awardRows = (list) =>
+  list.length
+    ? list.map((a, i) => html`<li><input class="input" id="aw-opt-${i}" data-aw="${i}" value="${a}" maxlength="80" placeholder="Award name" aria-label="Award ${i + 1}">
+        <button type="button" class="icon-btn" data-aw-remove="${i}" aria-label="Remove ${a || `award ${i + 1}`}">${icon('x')}</button></li>`)
+    : html`<li class="small faint">No awards in the list. The Award box on the Results page will offer no choices.</li>`;
 
 /** Where the event clock stands: unset (never started), running, or ended. */
 export function clockState(s) {
@@ -74,6 +86,17 @@ export async function render(ctx, params, seq) {
             <section class="card">
               <h2 class="section-title" style="margin-bottom:4px">Design Thinking</h2>
               ${toggle('design_thinking_enabled', 'Design Thinking page', 'Teams get a page for the 4-5-3 method: 4 members develop a base idea for about 5 minutes each, passing ideas along over 3 iterations, which gives 12 ideas. Off hides the page.')}
+            </section>
+            <section class="card stack-sm" id="st-awards">
+              <h2 class="section-title">Award list</h2>
+              <p class="small muted">The choices in the Award box on the <a href="#/results">Results</a> page. You can still type a different award there.</p>
+              <ol class="award-edit" data-aw-list>${awardRows(awardDraft || awardOptions(s))}</ol>
+              <div class="row">
+                <button type="button" class="btn btn-sm" data-aw-add>${icon('plus')}Add an award</button>
+                <span class="grow"></span>
+                <button type="button" class="btn btn-sm btn-primary" data-aw-save>${icon('check')}Save award list</button>
+              </div>
+              <p class="form-error" data-aw-error role="alert"></p>
             </section>`
           : ''}
 
@@ -140,6 +163,44 @@ export async function render(ctx, params, seq) {
       }
     });
   });
+
+  const awardBox = $('#st-awards');
+  if (awardBox) {
+    const list = () => (awardDraft ||= awardOptions(s).slice());
+    const redraw = (focus) => {
+      setHTML($('[data-aw-list]', awardBox), awardRows(list()));
+      if (focus !== undefined) document.getElementById(`aw-opt-${focus}`)?.focus();
+    };
+    awardBox.addEventListener('input', (e) => {
+      if (e.target.dataset.aw !== undefined) list()[Number(e.target.dataset.aw)] = e.target.value;
+    });
+    awardBox.addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-aw-add')) {
+        if (list().length >= 30) return toast('The award list can have up to 30 awards.', 'warn');
+        list().push('');
+        redraw(list().length - 1);
+      } else if (b.dataset.awRemove !== undefined) {
+        list().splice(Number(b.dataset.awRemove), 1);
+        redraw();
+      } else if (b.hasAttribute('data-aw-save')) {
+        const err = $('[data-aw-error]', awardBox);
+        err.textContent = '';
+        await withBusy(b, async () => {
+          try {
+            await api('/admin/settings', { method: 'PUT', body: { award_options: list() } });
+            awardDraft = null;
+            toast('Award list saved.', 'ok');
+            await ctx.refreshMeta();
+            ctx.rerender();
+          } catch (ex) {
+            err.textContent = ex.message;
+          }
+        });
+      }
+    });
+  }
 
   $$('[data-toggle]').forEach((sw) =>
     sw.addEventListener('change', async () => {

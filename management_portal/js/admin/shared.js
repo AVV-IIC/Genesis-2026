@@ -4,6 +4,17 @@ import { $, html, setHTML, icon, openModal, copyText, downloadText, esc, COMP_LA
 export const chip = (kind, label) => html`<span class="chip chip-${kind}">${label}</span>`;
 export const empty = (title, text, action = '') => html`<div class="empty"><h3>${title}</h3><p>${text}</p>${action}</div>`;
 
+/** The Ideathon award list from settings (a JSON array of names). */
+export function awardOptions(settings) {
+  if (settings.award_options === undefined) return ['Shortlisted for Anokha', 'Shortlisted for Innovation Mela']; // database not updated yet
+  try {
+    const list = JSON.parse(settings.award_options || '[]');
+    return Array.isArray(list) ? list.filter((x) => typeof x === 'string' && x.trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
 // Which competition this console runs (set by main.js once /admin/meta loads).
 export const scope = { comp: 'hackathon', eventName: 'Genesis' };
 
