@@ -8,6 +8,9 @@ import { celebrate } from '../launch.js';
 import { chip, empty, annItem, timeline, urgentBar } from '../portal.js';
 import { roster, writer, sheetFor, cells, cellKey, filled, chainsHTML, RULES, SHEETS, ITERATIONS, TOTAL, MAX_TEXT } from '../design.js';
 
+// The team's awards, stored one per line (defined here so a cached older core.js can't break this page).
+const awardsOf = (text) => String(text || '').split('\n').map((a) => a.trim()).filter(Boolean);
+
 const main = $('#main');
 const app = { data: null, view: 'overview', params: [], seq: 0, reveal: false, dismissedUrgent: null, dt: null };
 
@@ -108,8 +111,14 @@ function ideaStanding(d) {
   const res = d.result;
   const mine = sub.mine;
   if (res.published) {
-    return res.award
-      ? { kind: 'finished', title: res.award, text: res.note || 'Congratulations to the whole team. Thank you for taking part!' }
+    const awards = awardsOf(res.award);
+    return awards.length
+      ? {
+          kind: 'finished',
+          title: awards.length === 1 ? awards[0] : 'Congratulations!',
+          text: res.note || 'Congratulations to the whole team. Thank you for taking part!',
+          awards: awards.length > 1 ? awards : null,
+        }
       : { kind: 'waiting', title: 'Results are out', text: res.note || 'Thank you for taking part. See Announcements for the full list of winners.' };
   }
   if (!sub.enabled) {
@@ -203,6 +212,7 @@ const VIEWS = {
             <h1 class="standing-title">${s.title}</h1>
             <p class="standing-text">${s.text}</p>
             ${s.award && s.kind !== 'finished' ? html`<p>${chip('award', s.award)}</p>` : ''}
+            ${s.awards ? html`<p class="row">${s.awards.map((a) => chip('award', a))}</p>` : ''}
             ${s.countdown ? html`<p class="deadline-line">${icon('clock')}<span>Submissions close in <b class="mono" data-countdown="${s.countdown}"></b></span></p>` : ''}
           </div>
           <ol class="path" style="--n:${steps.length}" aria-label="${ideathon ? 'Your progress' : 'Round progress'}">${steps}</ol>

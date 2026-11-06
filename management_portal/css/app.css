@@ -961,6 +961,12 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .sheet .score-input::placeholder { color: #7fa39d; font-style: italic; }
 .results-table .input { min-height: 38px; padding: 7px 10px; font-size: 14px; }
 .results-table .team-cell { min-width: 150px; }
+.aw-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.aw-pick .aw-input { flex: 1 1 150px; min-width: 130px; }
+.aw-chip { gap: 4px; padding-right: 4px; }
+.aw-x { border: 0; background: transparent; color: inherit; cursor: pointer; width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; padding: 0; opacity: 0.7; }
+.aw-x:hover { opacity: 1; background: rgb(0 0 0 / 0.08); }
+.aw-x svg { width: 12px; height: 12px; }
 
 @media (max-width: 1080px) {
   .idea-grid { grid-template-columns: 1fr; }

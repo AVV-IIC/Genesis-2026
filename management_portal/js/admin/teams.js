@@ -1,6 +1,9 @@
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, timeAgo } from '../core.js';
 import { chip, empty, showCredentials, scope } from './shared.js';
 
+// An Ideathon team's awards, stored one per line (defined here so a cached older shared file can't break this page).
+const awardsOf = (text) => String(text || '').split('\n').map((a) => a.trim()).filter(Boolean);
+
 export const live = ['teams', 'rounds', 'results', 'submission'];
 
 // Filters per competition: [key, label, test]
@@ -133,7 +136,7 @@ function drawRows() {
 function statusChips(t) {
   if (!t.active) return chip('disabled', 'Disabled');
   if (scope.comp === 'ideathon') {
-    return html`${t.award ? chip('award', t.award) : chip('selected', 'Taking part')}${scope.submissions ? html` ${t.has_submission ? chip('advanced', 'Idea in') : chip('upcoming', 'No idea yet')}` : ''}`;
+    return html`${t.award ? awardsOf(t.award).map((a) => chip('award', a)) : chip('selected', 'Taking part')}${scope.submissions ? html` ${t.has_submission ? chip('advanced', 'Idea in') : chip('upcoming', 'No idea yet')}` : ''}`;
   }
   return t.eliminated_in ? chip('eliminated', `Out in R${t.eliminated_in}`) : chip('selected', 'Competing');
 }

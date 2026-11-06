@@ -212,7 +212,7 @@ export async function download(kind) {
     const sorted = [...ex.teams].sort((a, b) => (a.award === '') - (b.award === '') || a.code.localeCompare(b.code));
     return saveFile('genesis-ideathon-results.csv', toCsv([
       ['team_id', 'team_name', 'leader_name', 'track', 'table', 'idea_title', 'award', 'note'],
-      ...sorted.map((t) => [t.code, t.name, t.leader_name, t.track, t.table_no, titles.get(t.id) || '', t.award, t.result_note]),
+      ...sorted.map((t) => [t.code, t.name, t.leader_name, t.track, t.table_no, titles.get(t.id) || '', t.award.split('\n').join('; '), t.result_note]),
     ]), 'text/csv');
   }
   if (kind === 'teams') {
