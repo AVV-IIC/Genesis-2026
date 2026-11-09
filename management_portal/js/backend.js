@@ -110,8 +110,9 @@ const HEADER_ALIASES = {
   email: ['email', 'leader email', 'email id'],
   phone: ['phone', 'mobile', 'phone number', 'contact'],
   members: ['members', 'team members', 'member names'],
-  track: ['track', 'theme', 'problem statement', 'domain'],
-  table_no: ['table', 'table_no', 'table no', 'table number', 'seat'],
+  track: ['track', 'theme', 'problem statement'],
+  table_no: ['table', 'table_no', 'table no', 'table number', 'seat', 'domain', 'location'],
+  title: ['title', 'project title', 'idea title', 'project', 'idea'],
 };
 
 function csvToRows(text) {
@@ -211,14 +212,14 @@ export async function download(kind) {
     const titles = new Map(ex.submissions.map((s) => [s.team_id, s.title]));
     const sorted = [...ex.teams].sort((a, b) => (a.award === '') - (b.award === '') || a.code.localeCompare(b.code));
     return saveFile('genesis-ideathon-results.csv', toCsv([
-      ['team_id', 'team_name', 'leader_name', 'track', 'table', 'idea_title', 'award', 'note'],
-      ...sorted.map((t) => [t.code, t.name, t.leader_name, t.track, t.table_no, titles.get(t.id) || '', t.award.split('\n').join('; '), t.result_note]),
+      ['team_id', 'team_name', 'title', 'leader_name', 'track', 'domain', 'idea_title', 'award', 'note'],
+      ...sorted.map((t) => [t.code, t.name, t.title || '', t.leader_name, t.track, t.table_no, titles.get(t.id) || '', t.award.split('\n').join('; '), t.result_note]),
     ]), 'text/csv');
   }
   if (kind === 'teams') {
     return saveFile(`genesis-${comp}-teams.csv`, toCsv([
-      ['team_id', 'team_name', 'leader_name', 'email', 'phone', 'members', 'track', 'table', 'active', 'last_login'],
-      ...ex.teams.map((t) => [t.code, t.name, t.leader_name, t.email, t.phone, (t.members || []).join('; '), t.track, t.table_no, t.active ? 'yes' : 'no', t.last_login_at || '']),
+      ['team_id', 'team_name', 'title', 'leader_name', 'email', 'phone', 'members', 'track', comp === 'ideathon' ? 'domain' : 'table', 'active', 'last_login'],
+      ...ex.teams.map((t) => [t.code, t.name, t.title || '', t.leader_name, t.email, t.phone, (t.members || []).join('; '), t.track, t.table_no, t.active ? 'yes' : 'no', t.last_login_at || '']),
     ]), 'text/csv');
   }
   // results

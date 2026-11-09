@@ -48,7 +48,7 @@ export async function render(ctx, params, seq) {
     </div>
 
     <div class="toolbar">
-      <label class="search"><span class="sr-only">Search teams</span>${icon('search')}<input class="input" id="t-search" type="search" placeholder="Search name, ID, leader, track" value="${state.q}"></label>
+      <label class="search"><span class="sr-only">Search teams</span>${icon('search')}<input class="input" id="t-search" type="search" placeholder="Search name, ID, title, leader" value="${state.q}"></label>
       <div class="seg" role="group" aria-label="Filter teams">
         ${filters().map(
           ([k, label]) => html`<button type="button" data-filter="${k}" aria-pressed="${String(state.filter === k)}">${label} <span class="faint">${counts[k]}</span></button>`
@@ -62,7 +62,7 @@ export async function render(ctx, params, seq) {
     <section class="card card-flush">
       ${state.teams.length
         ? html`<div class="table-wrap"><table class="table">
-            <thead><tr><th>Team ID</th><th>Team</th><th>Track</th><th>Table</th><th class="num">Members</th><th>Status</th><th>Last sign-in</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th>Team ID</th><th>Team</th><th>Track</th><th>${scope.comp === 'ideathon' ? 'Domain' : 'Table'}</th><th class="num">Members</th><th>Status</th><th>Last sign-in</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
             <tbody id="t-body"></tbody></table></div>`
         : empty('No teams yet', 'Add teams one by one, or import them all at once from a spreadsheet.', html`<div class="row" style="justify-content:center"><button type="button" class="btn" id="t-import-2">${icon('upload')}Import CSV</button><button type="button" class="btn btn-primary" id="t-add-2">${icon('plus')}Add team</button></div>`)}
     </section>`
@@ -95,7 +95,7 @@ function visibleTeams() {
   return state.teams.filter((t) => {
     if (!test(t)) return false;
     if (!q) return true;
-    return [t.code, t.name, t.leader_name, t.track, t.table_no, ...t.members].some((v) => String(v || '').toLowerCase().includes(q));
+    return [t.code, t.name, t.title, t.leader_name, t.track, t.table_no, ...t.members].some((v) => String(v || '').toLowerCase().includes(q));
   });
 }
 
@@ -112,7 +112,7 @@ function drawRows() {
     list.map(
       (t) => html`<tr class="${t.active ? '' : 'is-dim'}">
         <td><span class="code-tag">${t.code}</span></td>
-        <td class="team-cell"><strong>${t.name}</strong><small>${t.leader_name || 'No leader set'}${t.phone ? ` · ${t.phone}` : ''}</small></td>
+        <td class="team-cell"><strong>${t.name}</strong>${t.title ? html`<small class="team-title">${t.title}</small>` : ''}<small>${t.leader_name || 'No leader set'}${t.phone ? ` · ${t.phone}` : ''}</small></td>
         <td>${t.track || html`<span class="faint">–</span>`}</td>
         <td>${t.table_no || html`<span class="faint">–</span>`}</td>
         <td class="num">${t.members.length}</td>
@@ -147,7 +147,8 @@ function eventName() {
 
 function editTeam(ctx, team) {
   if (ctx) lastCtx = ctx;
-  const t = team || { code: '', name: '', leader_name: '', email: '', phone: '', members: [], track: '', table_no: '', notes: '', active: true };
+  const t = team || { code: '', name: '', title: '', leader_name: '', email: '', phone: '', members: [], track: '', table_no: '', notes: '', active: true };
+  const ideathon = scope.comp === 'ideathon';
   formModal({
     title: team ? 'Edit team' : 'Add team',
     submitLabel: team ? 'Save changes' : 'Add team',
@@ -157,11 +158,12 @@ function editTeam(ctx, team) {
         <label class="field"><span>Team name</span><input class="input" name="name" value="${t.name}" maxlength="80" required></label>
         <label class="field"><span>Team ID (login) <span class="hint">${team ? '' : `Leave blank for ${state.nextCode}`}</span></span>
           <input class="input mono" name="code" value="${t.code}" maxlength="32" placeholder="${state.nextCode}" autocapitalize="characters" spellcheck="false"></label>
+        <label class="field span-2"><span>Title <span class="hint">Optional, e.g. the project or idea title</span></span><input class="input" name="title" value="${t.title || ''}" maxlength="160"></label>
         <label class="field"><span>Team leader</span><input class="input" name="leader_name" value="${t.leader_name}" maxlength="80"></label>
         <label class="field"><span>Leader phone</span><input class="input" name="phone" value="${t.phone}" maxlength="30" inputmode="tel"></label>
         <label class="field"><span>Leader email</span><input class="input" name="email" value="${t.email}" maxlength="120" type="email"></label>
         <label class="field"><span>Track / problem statement</span><input class="input" name="track" value="${t.track}" maxlength="120"></label>
-        <label class="field"><span>Table / location</span><input class="input" name="table_no" value="${t.table_no}" maxlength="20"></label>
+        <label class="field"><span>${ideathon ? 'Domain' : 'Table / location'}</span><input class="input" name="table_no" value="${t.table_no}" maxlength="120"></label>
         ${team
           ? html`<label class="field"><span>Account</span><span class="check" style="min-height:42px"><input type="checkbox" name="active" ${t.active ? 'checked' : ''}> Team can sign in</span></label>`
           : html`<label class="field"><span>Password <span class="hint">Leave blank to generate one</span></span><input class="input mono" name="password" maxlength="100" autocomplete="off" spellcheck="false"></label>`}
@@ -243,7 +245,7 @@ function importTeams(ctx) {
       <p class="muted">Upload a CSV exported from Excel or Google Sheets. Only <span class="code-tag">team_name</span> is required. Team IDs and passwords are generated when left blank. Separate members with semicolons.</p>
       <p><button type="button" class="btn btn-sm" data-download="template">${icon('download')}Download template</button></p>
       <label class="drop" id="drop"><input type="file" id="csv-file" accept=".csv,text/csv" class="sr-only">
-        <strong>Choose a CSV file</strong> or drop it here<br><span class="small faint" id="csv-name">Columns: team_name, leader_name, email, phone, members, track, table, team_id, password</span></label>
+        <strong>Choose a CSV file</strong> or drop it here<br><span class="small faint" id="csv-name">Columns: team_name, title, leader_name, email, phone, members, track, ${scope.comp === 'ideathon' ? 'domain' : 'table'}, team_id, password</span></label>
       <label class="field"><span>Or paste CSV</span><textarea class="textarea mono" name="csv" id="csv-text" rows="6" style="font-size:12px" placeholder="team_name,leader_name,members&#10;Null Pointers,Asha Rao,Asha Rao; Vikram S"></textarea></label>`,
     onMount(dlg) {
       const file = $('#csv-file', dlg);

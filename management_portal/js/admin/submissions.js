@@ -79,7 +79,7 @@ function ideaCard(s) {
     <summary>
       <span class="idea-sum">
         <strong>${s.title}</strong>
-        <small>${s.name} · <span class="mono">${s.code}</span>${s.track ? ` · ${s.track}` : ''}${s.table_no ? ` · Table ${s.table_no}` : ''}</small>
+        <small>${s.name} · <span class="mono">${s.code}</span>${s.track ? ` · ${s.track}` : ''}${s.table_no ? ` · ${s.table_no}` : ''}</small>
       </span>
       <span class="row">${links.length ? chip('advanced', plural(links.length, 'link')) : ''}<span class="small muted">${timeAgo(s.updated_at)}</span></span>
     </summary>

@@ -280,6 +280,7 @@ a.chip:hover { filter: brightness(0.95); }
 .table .actions { text-align: right; white-space: nowrap; }
 .table .team-cell strong { display: block; font-weight: 600; }
 .table .team-cell small { color: var(--faint); font-size: 12px; }
+.table .team-cell small.team-title { display: block; color: var(--muted); font-style: italic; }
 .table tr.is-dim td { color: var(--faint); }
 .table tr.is-me td { background: #e3f6f1; }
 .table tr.is-me:hover td { background: #d8f1ea; }

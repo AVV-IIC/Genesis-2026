@@ -77,7 +77,7 @@ function draw() {
           <td>${d.teams.filter((t) => answeredIn(a, t) > 0).length}</td></tr>`)}</tbody></table></section>`;
 
   const summary = html`<section class="rp-section"><h2>Summary</h2><table class="rp-table rp-sum">
-    <thead><tr><th>Team</th><th>Leader</th><th>Table</th><th>Answered</th></tr></thead>
+    <thead><tr><th>Team</th><th>Leader</th><th>Domain</th><th>Answered</th></tr></thead>
     <tbody>${d.teams.filter((t) => t.active || answeredAll(t)).map((t) => {
       const n = answeredAll(t);
       return html`<tr class="${n ? '' : 'rp-none'}"><td>${teamName(t)}</td><td>${t.leader_name || '–'}</td><td>${t.table_no || '–'}</td><td>${n} / ${totalQs}</td></tr>`;
@@ -88,7 +88,7 @@ function draw() {
     body = html`<section class="rp-section"><h2>Answers by team</h2>
       ${withAnswers.map((t) => html`<article class="rp-team">
         <h3>${teamName(t)}</h3>
-        <p class="rp-sub">${[t.leader_name && `Leader: ${t.leader_name}`, t.table_no && `Table ${t.table_no}`, t.track, (t.members || []).length && `Members: ${t.members.join(', ')}`].filter(Boolean).join(' · ')}</p>
+        <p class="rp-sub">${[t.title && `Title: ${t.title}`, t.leader_name && `Leader: ${t.leader_name}`, t.table_no && `Domain: ${t.table_no}`, t.track, (t.members || []).length && `Members: ${t.members.join(', ')}`].filter(Boolean).join(' · ')}</p>
         ${d.assessments.map((a) => html`${single ? '' : html`<h4>${a.title}</h4>`}${a.questions.map((q, i) => qa(q, i, answer(a, q, t)))}`)}
       </article>`)}
       ${withAnswers.length ? '' : html`<p class="rp-note">No answers yet.</p>`}

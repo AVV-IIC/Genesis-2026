@@ -1,5 +1,5 @@
 import { $, $$, api, html, raw, setHTML, icon, toast, toastError, timeAgo, withBusy, TICKET_LABEL } from '../core.js';
-import { chip, empty } from './shared.js';
+import { chip, empty, scope } from './shared.js';
 
 const state = { filter: 'active' };
 
@@ -57,7 +57,7 @@ export async function render(ctx, params, seq) {
           ? html`<div class="ticket-list">${shown.map(
               (t) => html`<a class="ticket-row${t.admin_unread ? ' is-unread' : ''}" href="#/help/${t.id}" ${ticket && ticket.id === t.id ? raw('aria-current="true"') : ''}>
                 <strong>${t.subject}</strong>${chip(t.status, TICKET_LABEL[t.status])}
-                <small>${t.team_name}${t.table_no ? ` · T${t.table_no}` : ''} · ${t.category} · ${timeAgo(t.updated_at)}</small></a>`
+                <small>${t.team_name}${t.table_no ? (scope.comp === 'ideathon' ? ` · ${t.table_no}` : ` · T${t.table_no}`) : ''} · ${t.category} · ${timeAgo(t.updated_at)}</small></a>`
             )}</div>`
           : empty(state.filter === 'active' ? 'All caught up' : 'Nothing here', state.filter === 'active' ? 'No requests need attention right now.' : 'No requests match this filter.')}
       </section>
@@ -78,7 +78,7 @@ function threadCard(t) {
   return html`<div class="card stack">
     <div class="row-between" style="align-items:start">
       <div><h2 class="section-title">${t.subject}</h2>
-        <p class="small muted" style="margin-top:6px"><span class="code-tag">${t.team_code}</span> ${t.team_name}${t.table_no ? ` · Table ${t.table_no}` : ''} · ${t.category} · opened ${timeAgo(t.created_at)}</p></div>
+        <p class="small muted" style="margin-top:6px"><span class="code-tag">${t.team_code}</span> ${t.team_name}${t.table_no ? (scope.comp === 'ideathon' ? ` · ${t.table_no}` : ` · Table ${t.table_no}`) : ''} · ${t.category} · opened ${timeAgo(t.created_at)}</p></div>
       <label class="field"><span class="sr-only">Status</span>
         <select class="select" id="tk-status" style="min-width:150px">${Object.entries(TICKET_LABEL).map(([k, v]) => html`<option value="${k}" ${k === t.status ? raw('selected') : ''}>${v}</option>`)}</select></label>
     </div>

@@ -204,7 +204,7 @@ const VIEWS = {
         <section class="card standing${app.reveal ? ' reveal' : ''}" data-kind="${s.kind}" aria-live="polite">
           <div class="standing-meta">
             <span class="code-tag">${d.team.code}</span>
-            ${d.team.table_no ? html`<span>Table ${d.team.table_no}</span>` : ''}
+            ${d.team.table_no ? html`<span>${ideathon ? d.team.table_no : `Table ${d.team.table_no}`}</span>` : ''}
             ${d.team.track ? html`<span>${d.team.track}</span>` : ''}
           </div>
           <div class="stack-sm">
@@ -525,11 +525,12 @@ const VIEWS = {
           <h2 class="section-title" style="margin-bottom:12px">Team details</h2>
           <ul class="list-plain">
             <li><span class="muted">Team ID</span><span class="code-tag">${t.code}</span></li>
+            ${t.title ? html`<li><span class="muted">Title</span><span>${t.title}</span></li>` : ''}
             <li><span class="muted">Team leader</span><span>${t.leader_name || '–'}</span></li>
             ${t.email ? html`<li><span class="muted">Email</span><span>${t.email}</span></li>` : ''}
             ${t.phone ? html`<li><span class="muted">Phone</span><span>${t.phone}</span></li>` : ''}
             <li><span class="muted">Track</span><span>${t.track || '–'}</span></li>
-            <li><span class="muted">Table</span><span>${t.table_no || '–'}</span></li>
+            <li><span class="muted">${app.data.competition === 'ideathon' ? 'Domain' : 'Table'}</span><span>${t.table_no || '–'}</span></li>
           </ul>
         </section>
         <section class="stack">

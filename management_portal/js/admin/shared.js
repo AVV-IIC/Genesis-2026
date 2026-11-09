@@ -31,7 +31,7 @@ function credentialsCsv(creds) {
   const judges = creds.some((c) => c.judge);
   const rows = judges
     ? [['judge_id', 'judge_name', 'password', 'portal']]
-    : [['team_id', 'team_name', 'leader_name', 'table', 'password', 'portal']];
+    : [['team_id', 'team_name', 'leader_name', scope.comp === 'ideathon' ? 'domain' : 'table', 'password', 'portal']];
   for (const c of creds) {
     rows.push(judges ? [c.code, c.name, c.password, portalUrl('hackathon')] : [c.code, c.name, c.leader_name || '', c.table_no || '', c.password, portalUrl()]);
   }
@@ -46,7 +46,7 @@ export function printSlips(creds, eventName = scope.eventName) {
       (c) => html`<div class="slip">
         <img src="img/logo-sm.png" alt="">
         <div><h3>${eventName}</h3>
-        <div class="team">${c.judge ? `${c.name} · Judge` : `${c.name}${c.table_no ? ` · Table ${c.table_no}` : ''}`}</div>
+        <div class="team">${c.judge ? `${c.name} · Judge` : `${c.name}${c.table_no ? (scope.comp === 'ideathon' ? ` · ${c.table_no}` : ` · Table ${c.table_no}`) : ''}`}</div>
         <dl><dt>Portal</dt><dd>${portalUrl(c.judge ? 'hackathon' : scope.comp)}</dd><dt>${c.judge ? 'Judge ID' : 'Team ID'}</dt><dd>${c.code}</dd><dt>Password</dt><dd>${c.password}</dd></dl></div>
         <small>${c.judge ? '' : `Team leader${c.leader_name ? `: ${c.leader_name}` : ''}. `}${signInHint(c)} Keep this slip private.</small>
       </div>`
