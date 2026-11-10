@@ -274,6 +274,8 @@ const ROUTES = [
   ['PUT', /^\/team\/design\/base$/, (m, b) => rpc('api_team_design_base_save', { p_body: b })],
   ['PUT', /^\/team\/design\/ideas\/(\d+)\/(\d+)$/, (m, b) => rpc('api_team_design_idea_save', { p_iteration: n(m[1]), p_sheet: n(m[2]), p_body: b })],
   ['POST', /^\/team\/design\/next$/, (m, b) => rpc('api_team_design_next', { p_body: b })],
+  ['GET', /^\/team\/mela$/, () => rpc('api_team_mela')],
+  ['PUT', /^\/team\/mela$/, (m, b) => rpc('api_team_mela_save', { p_body: b })],
   ['GET', /^\/team\/assessments$/, () => rpc('api_team_assessments')],
   ['PUT', /^\/team\/assessments\/(\d+)\/answers\/(\d+)$/, (m, b) => rpc('api_team_assessment_answer_save', { p_assessment: n(m[1]), p_question: n(m[2]), p_body: b })],
 
@@ -325,6 +327,8 @@ const ROUTES = [
   ['GET', /^\/admin\/submissions$/, () => rpc('api_admin_submissions')],
   ['GET', /^\/admin\/design$/, () => rpc('api_admin_design')],
   ['POST', /^\/admin\/design\/(\d+)\/back$/, (m) => rpc('api_admin_design_back', { p_team: n(m[1]) })],
+  ['GET', /^\/admin\/mela$/, () => rpc('api_admin_mela')],
+  ['POST', /^\/admin\/mela\/teams$/, (m, b) => rpc('api_admin_mela_team_create', { p_body: b })],
   ['GET', /^\/admin\/assessments$/, () => rpc('api_admin_assessments')],
   ['POST', /^\/admin\/assessments$/, (m, b) => rpc('api_admin_assessment_create', { p_body: b })],
   ['GET', /^\/admin\/assessments\/report$/, () => rpc('api_admin_assessment_report', { p_id: null })],

@@ -87,6 +87,10 @@ export async function render(ctx, params, seq) {
               <h2 class="section-title" style="margin-bottom:4px">Design Thinking</h2>
               ${toggle('design_thinking_enabled', 'Design Thinking page', 'Teams get a page for the 4-5-3 method: 4 members develop a base idea for about 5 minutes each, passing ideas along over 3 iterations, which gives 12 ideas. Off hides the page.')}
             </section>
+            <section class="card">
+              <h2 class="section-title" style="margin-bottom:4px">Innovation Mela</h2>
+              ${toggle('mela_enabled', 'Innovation Mela tab', 'Teams with the “Shortlisted for Innovation Mela” award, and outside teams added on the Innovation Mela page, get a tab to share their registration details. Off hides it.')}
+            </section>
             <section class="card stack-sm" id="st-awards">
               <h2 class="section-title">Award list</h2>
               <p class="small muted">The choices in the Award box on the <a href="#/results">Results</a> page. You can still type a different award there.</p>

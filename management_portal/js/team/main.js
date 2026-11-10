@@ -44,8 +44,10 @@ function renderChrome() {
 
   document.body.dataset.comp = d.competition;
   const ideathon = d.competition === 'ideathon';
-  const tabs = [
+  // Outside teams (Innovation Mela only) see just the Innovation Mela tab.
+  const tabs = melaOnly() ? [['mela', 'Innovation Mela']] : [
     ['overview', 'Overview'],
+    ideathon && d.mela && d.mela.enabled ? ['mela', 'Innovation Mela', d.mela.answered ? 0 : 1] : null,
     ideathon ? null : ['scorecard', 'Scorecard'],
     ideathon && d.design && d.design.enabled ? ['design', 'Design Thinking'] : null,
     ideathon && d.assessments && d.assessments.on ? ['assessments', 'Assessments', asTodo(d)] : null,
@@ -66,6 +68,7 @@ function renderChrome() {
 }
 
 function renderUrgent(fresh) {
+  if (melaOnly()) return urgentBar($('#urgent'), null);
   const seen = app.data.announcements_seen_at;
   const a = fresh || (app.data.announcements || []).find((x) => x.priority === 'urgent' && (!seen || x.created_at > seen));
   const show = a && app.dismissedUrgent !== a.id && app.view !== 'announcements';
@@ -195,6 +198,7 @@ const VIEWS = {
     setHTML(
       main,
       html`
+      ${ideathon && d.mela && d.mela.enabled ? melaBanner(d) : ''}
       ${ideathon ? asBanners(d) : ''}
       <div class="hero-grid">
         <section class="card hero-dial" aria-label="Event clock">
@@ -376,6 +380,22 @@ const VIEWS = {
            <section class="card dt-next" data-dt-next aria-live="polite">${dtNextHTML()}</section>`}`
     );
     bindDesign();
+  },
+
+  async mela(params, seq) {
+    const m = await api('/team/mela');
+    if (seq !== app.seq) return;
+    app.mela = m;
+    if (!m.enabled) {
+      setHTML(main, html`${melaHero()}<div class="card">${empty('Innovation Mela isn’t open right now', 'The organisers will open this page for the event. Please check back soon.')}</div>`);
+      return;
+    }
+    if (!app.melaDraft) {
+      const reg = m.registration;
+      app.melaDraft = { registered: reg ? reg.registered : null, members: reg && reg.registered ? reg.members.map((x) => ({ ...x })) : melaPrefill(m.team) };
+    }
+    setHTML(main, html`${melaHero()}${melaForm(m, app.melaDraft)}`);
+    bindMela();
   },
 
   async assessments(params, seq) {
@@ -770,6 +790,116 @@ document.addEventListener('visibilitychange', () => {
 // a moment after typing stops and when the box loses focus. Answers lock at the organiser's end time.
 const asTodo = (d) => ((d.assessments && d.assessments.open) || []).filter((a) => a.answered < a.total).length;
 
+// ---------- ideathon: Innovation Mela (12-13 Nov 2026) -----------------------------------------
+const melaOnly = () => !!(app.data && app.data.mela && app.data.mela.only);
+
+function melaBanner(d) {
+  return html`<section class="card as-banner mela-banner">
+    <span class="as-banner-icon">${icon('zap')}</span>
+    <div><strong>Your team is shortlisted for Innovation Mela</strong>
+      <small>12–13 November · ${d.mela.answered ? 'Thanks, the organisers have your registration details.' : 'Tell the organisers whether your team has registered.'}</small></div>
+    <a class="btn ${d.mela.answered ? '' : 'btn-primary'}" href="#/mela">${d.mela.answered ? 'View details' : 'Open Innovation Mela'}</a>
+  </section>`;
+}
+
+const melaHero = () => html`<section class="card mela-hero">
+  <div class="mela-logos">
+    <img src="img/partners/amrita.png" alt="Amrita Vishwa Vidyapeetham, Coimbatore campus" width="308" height="128">
+    <img src="img/partners/iic.png" alt="Institution’s Innovation Council" width="243" height="112">
+    <img src="img/partners/thingqbator.png" alt="thingQbator" width="561" height="112">
+    <img src="img/partners/nasscom-foundation.png" alt="nasscom foundation" width="366" height="112">
+  </div>
+  <div class="mela-title">
+    <p class="mela-kicker">12 – 13 November 2026 · two days</p>
+    <h1 class="page-title">Innovation Mela</h1>
+    <p>Hosted by nasscom foundation and thingQbator, in collaboration with Amrita Vishwa Vidyapeetham, Coimbatore and its Institution’s Innovation Council (IIC).</p>
+  </div>
+</section>`;
+
+// Start from the team's own details: members' names (leader first), and the leader's phone and email.
+function melaPrefill(team) {
+  const names = (team.members || []).map((x) => String(x).trim()).filter(Boolean);
+  const lead = String(team.leader_name || '').trim();
+  if (lead && !names.some((x) => x.toLowerCase() === lead.toLowerCase())) names.unshift(lead);
+  return [0, 1, 2, 3].map((i) => ({ name: names[i] || '', mobile: i === 0 ? team.phone || '' : '', email: i === 0 ? team.email || '' : '' }));
+}
+
+function melaForm(m, draft) {
+  const reg = m.registration;
+  const status = !reg ? chip('upcoming', 'Not answered yet') : reg.registered ? chip('selected', 'Registered') : chip('eliminated', 'Not registered');
+  return html`<form class="card stack mela-form" id="mela-form" novalidate>
+    <div class="row-between"><h2 class="section-title">Your registration</h2>${status}</div>
+    <fieldset class="mela-q">
+      <legend>Has your team registered for Innovation Mela?</legend>
+      <div class="mela-choices">
+        <label class="mela-choice"><input type="radio" name="registered" id="mela-yes" value="yes" ${draft.registered === true ? 'checked' : ''}>
+          <span><strong>Yes, we registered</strong><small>Give the details of all 4 members exactly as you registered them.</small></span></label>
+        <label class="mela-choice"><input type="radio" name="registered" id="mela-no" value="no" ${draft.registered === false ? 'checked' : ''}>
+          <span><strong>No, not yet</strong><small>We’ll let the organisers know.</small></span></label>
+      </div>
+    </fieldset>
+    ${reg && !reg.registered && draft.registered === false
+      ? html`<div class="callout callout-warn">${icon('info')}<span>Noted: your team hasn’t registered. Contact the organisers if you’d like to take part in Innovation Mela.</span></div>`
+      : ''}
+    <div class="mela-members" ${draft.registered === true ? '' : 'hidden'}>
+      ${draft.members.map((x, i) => html`<fieldset class="mela-member">
+        <legend>Member ${i + 1}${i === 0 ? ' · Team leader' : ''}</legend>
+        <label class="field"><span>Registered name</span><input class="input" id="mm-${i}-name" data-mm="${i}" data-k="name" value="${x.name}" maxlength="80" autocomplete="off"></label>
+        <label class="field"><span>Mobile number</span><input class="input" id="mm-${i}-mobile" data-mm="${i}" data-k="mobile" value="${x.mobile}" maxlength="20" inputmode="tel" placeholder="10-digit mobile number" autocomplete="off"></label>
+        <label class="field"><span>Email ID</span><input class="input" id="mm-${i}-email" data-mm="${i}" data-k="email" type="email" value="${x.email}" maxlength="120" autocomplete="off"></label>
+      </fieldset>`)}
+    </div>
+    <div class="form-error" role="alert"></div>
+    <div class="row-between">
+      <span class="small muted">${reg ? `Last saved ${fmtDateTime(reg.updated_at)}. You can update it while this page is open.` : 'The organisers see what you save here.'}</span>
+      <button class="btn btn-primary" type="submit">${icon('check')}Save</button>
+    </div>
+  </form>`;
+}
+
+function bindMela() {
+  const form = $('#mela-form');
+  if (!form) return;
+  form.addEventListener('change', (e) => {
+    if (e.target.name !== 'registered') return;
+    app.melaDraft.registered = e.target.value === 'yes';
+    $('.mela-members', form).hidden = !app.melaDraft.registered;
+  });
+  form.addEventListener('input', (e) => {
+    const i = e.target.dataset.mm;
+    if (i !== undefined) app.melaDraft.members[Number(i)][e.target.dataset.k] = e.target.value;
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('.form-error', form);
+    err.textContent = '';
+    const dr = app.melaDraft;
+    if (dr.registered === null) {
+      err.textContent = 'Choose Yes or No first.';
+      return;
+    }
+    if (dr.registered) {
+      const gap = dr.members.findIndex((x) => !x.name.trim() || !x.mobile.trim() || !x.email.trim());
+      if (gap >= 0) {
+        err.textContent = `Fill in the name, mobile number and email of member ${gap + 1}.`;
+        $(`#mm-${gap}-${!dr.members[gap].name.trim() ? 'name' : !dr.members[gap].mobile.trim() ? 'mobile' : 'email'}`)?.focus();
+        return;
+      }
+    }
+    await withBusy($('button[type=submit]', form), async () => {
+      try {
+        await api('/team/mela', { method: 'PUT', body: dr.registered ? { registered: true, members: dr.members } : { registered: false } });
+        toast(dr.registered ? 'Saved. The organisers can see your team’s details.' : 'Saved. The organisers know your team hasn’t registered.', 'ok');
+        app.melaDraft = null;
+        await loadCore();
+        render();
+      } catch (ex) {
+        err.textContent = ex.message;
+      }
+    });
+  });
+}
+
 function asBanners(d) {
   const open = (d.assessments && d.assessments.open) || [];
   return open.map((a) => html`<section class="card as-banner">
@@ -1079,9 +1209,11 @@ async function render() {
     idea: !ideathon || !d.submission.enabled,
     design: !ideathon || !(d.design && d.design.enabled),
     assessments: !ideathon || !(d.assessments && d.assessments.on),
+    mela: !ideathon || !(d.mela && (d.mela.enabled || d.mela.only)),
   };
-  if (hidden[view]) {
-    location.hash = '#/overview';
+  // Outside teams (Innovation Mela only) have nothing but the Innovation Mela page.
+  if (melaOnly() ? view !== 'mela' : hidden[view]) {
+    location.hash = melaOnly() ? '#/mela' : '#/overview';
     return;
   }
   for (const a of $$('#tabs a')) {

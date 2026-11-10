@@ -828,6 +828,31 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .dt-sum-side { gap: 10px; }
 .dt-meter { display: inline-flex; align-items: center; gap: 8px; }
 .dt-meter .progress { width: 80px; }
+/* ---------- Innovation Mela ---------- */
+.mela-hero { display: grid; gap: 18px; margin-bottom: 16px; padding: 0; overflow: hidden; }
+.mela-logos { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 34px; padding: 18px 22px; background: #fff; border-bottom: 1px solid var(--line-soft); }
+.mela-logos img { height: 46px; width: auto; max-width: 100%; object-fit: contain; }
+.mela-logos img[alt^='Amrita'] { height: 54px; }
+.mela-title { padding: 0 22px 20px; display: grid; gap: 6px; }
+.mela-title p { color: var(--muted); max-width: 70ch; }
+.mela-kicker { font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #b8005c !important; }
+.mela-q { border: 0; padding: 0; margin: 0; min-width: 0; }
+.mela-q legend { font-weight: 600; font-size: 16px; margin-bottom: 10px; padding: 0; }
+.mela-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.mela-choice { position: relative; display: flex; gap: 10px; align-items: start; padding: 14px 16px; border: 1.5px solid var(--line); border-radius: 12px; cursor: pointer; background: var(--surface); }
+.mela-choice input { margin-top: 3px; accent-color: var(--teal); width: 18px; height: 18px; flex: none; }
+.mela-choice span { display: grid; gap: 2px; }
+.mela-choice small { color: var(--muted); }
+.mela-choice:has(input:checked) { border-color: var(--teal-logo); background: #effaf5; box-shadow: 0 0 0 3px rgb(32 160 144 / 0.12); }
+.mela-members { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.mela-member { border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px 14px; margin: 0; display: grid; gap: 10px; min-width: 0; background: var(--surface-2); }
+.mela-member legend { padding: 0 6px; font-weight: 700; font-size: 13px; color: var(--teal); }
+.mela-banner .as-banner-icon { background: #b8005c; }
+.mela-stats { margin-bottom: 16px; }
+.mela-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+.mela-list li span, .mela-list li a { margin-left: 8px; }
+.mela-list li a { color: var(--ocean); }
+.mela-table .chip-plain { margin-top: 4px; }
 .award-edit { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
 .award-edit li { display: flex; gap: 6px; align-items: center; }
 .award-edit .input { flex: 1; min-width: 0; }

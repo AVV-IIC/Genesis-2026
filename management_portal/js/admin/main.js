@@ -17,8 +17,9 @@ import * as submissions from './submissions.js';
 import * as results from './results.js';
 import * as design from './design.js';
 import * as assessments from './assessments.js';
+import * as mela from './mela.js';
 
-const VIEWS = { dashboard, teams, judges, rounds, submissions, design, assessments, results, announcements, help, schedule, leaderboard, settings };
+const VIEWS = { dashboard, teams, judges, rounds, submissions, design, assessments, mela, results, announcements, help, schedule, leaderboard, settings };
 // Each competition has its own console; the Ideathon has no rounds, scores or judges.
 const NAV = {
   hackathon: [
@@ -38,6 +39,7 @@ const NAV = {
     ['submissions', 'Ideas', 'bulb', null, (m) => m.settings.submissions_enabled === '1'],
     ['design', 'Design Thinking', 'sparkle'],
     ['assessments', 'Assessments', 'clipboard'],
+    ['mela', 'Innovation Mela', 'zap'],
     ['results', 'Results', 'award'],
     ['announcements', 'Announcements', 'megaphone'],
     ['help', 'Help desk', 'help', 'tickets_unread'],
@@ -142,7 +144,7 @@ const metaSoon = debounce(() => refreshMeta().catch(() => {}), 300);
   startRouter('dashboard', onRoute);
 
   const handlers = {};
-  for (const type of ['teams', 'rounds', 'sheet', 'results', 'announcement', 'announcements', 'schedule', 'settings', 'ticket', 'judges', 'submission', 'design', 'assessment']) {
+  for (const type of ['teams', 'rounds', 'sheet', 'results', 'announcement', 'announcements', 'schedule', 'settings', 'ticket', 'judges', 'submission', 'design', 'assessment', 'mela']) {
     handlers[type] = (data) => {
       if (type === 'ticket' && (data.kind === 'new' || data.kind === 'reply')) {
         const who = data.team ? ` · ${data.team}` : '';

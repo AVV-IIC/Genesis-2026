@@ -135,6 +135,7 @@ function drawRows() {
 
 function statusChips(t) {
   if (!t.active) return chip('disabled', 'Disabled');
+  if (scope.comp === 'ideathon' && t.mela_only) return chip('pending', 'Innovation Mela only');
   if (scope.comp === 'ideathon') {
     return html`${t.award ? awardsOf(t.award).map((a) => chip('award', a)) : chip('selected', 'Taking part')}${scope.submissions ? html` ${t.has_submission ? chip('advanced', 'Idea in') : chip('upcoming', 'No idea yet')}` : ''}`;
   }
