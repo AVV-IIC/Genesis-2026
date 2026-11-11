@@ -45,7 +45,7 @@ function renderChrome() {
   document.body.dataset.comp = d.competition;
   const ideathon = d.competition === 'ideathon';
   // Outside teams (Innovation Mela only) see just the Innovation Mela tab.
-  const tabs = melaOnly() ? [['mela', 'Innovation Mela']] : [
+  const tabs = melaOnly() ? [['mela', 'Innovation Mela'], ['team', 'My team']] : [
     ['overview', 'Overview'],
     ideathon && d.mela && d.mela.enabled ? ['mela', 'Innovation Mela', d.mela.answered ? 0 : 1] : null,
     ideathon ? null : ['scorecard', 'Scorecard'],
@@ -392,7 +392,9 @@ const VIEWS = {
     }
     if (!app.melaDraft) {
       const reg = m.registration;
-      app.melaDraft = { registered: reg ? reg.registered : null, members: reg && reg.registered ? reg.members.map((x) => ({ ...x })) : melaPrefill(m.team) };
+      const saved = reg && reg.registered ? reg.members.map((x) => ({ ...x })) : null;
+      // Always 4 slots, so a team that saved fewer members can add more later.
+      app.melaDraft = { registered: reg ? reg.registered : null, members: saved ? [0, 1, 2, 3].map((i) => saved[i] || { name: '', mobile: '', email: '' }) : melaPrefill(m.team) };
     }
     setHTML(main, html`${melaHero()}${melaForm(m, app.melaDraft)}`);
     bindMela();
@@ -539,7 +541,7 @@ const VIEWS = {
     setHTML(
       main,
       html`
-      <div class="page-head"><div><h1 class="page-title">${t.name}</h1><p>Your team’s details as registered with the organisers. Ask at the help desk if anything is wrong.</p></div></div>
+      <div class="page-head"><div><h1 class="page-title">${t.name}</h1><p>Your team’s details as registered with the organisers. ${melaOnly() ? 'Contact the organisers' : 'Ask at the help desk'} if anything is wrong.</p></div></div>
       <div class="two-col" style="margin-top:0">
         <section class="card">
           <h2 class="section-title" style="margin-bottom:12px">Team details</h2>
@@ -549,8 +551,8 @@ const VIEWS = {
             <li><span class="muted">Team leader</span><span>${t.leader_name || '–'}</span></li>
             ${t.email ? html`<li><span class="muted">Email</span><span>${t.email}</span></li>` : ''}
             ${t.phone ? html`<li><span class="muted">Phone</span><span>${t.phone}</span></li>` : ''}
-            <li><span class="muted">Track</span><span>${t.track || '–'}</span></li>
-            <li><span class="muted">${app.data.competition === 'ideathon' ? 'Domain' : 'Table'}</span><span>${t.table_no || '–'}</span></li>
+            ${melaOnly() ? '' : html`<li><span class="muted">Track</span><span>${t.track || '–'}</span></li>
+            <li><span class="muted">${app.data.competition === 'ideathon' ? 'Domain' : 'Table'}</span><span>${t.table_no || '–'}</span></li>`}
           </ul>
         </section>
         <section class="stack">
@@ -562,7 +564,7 @@ const VIEWS = {
             <h2 class="section-title" style="margin-bottom:8px">Password</h2>
             ${app.data.event.allow_password_change
               ? html`<p class="muted small" style="margin-bottom:12px">Changing it signs out your team’s other devices.</p><button type="button" class="btn" id="change-pw">${icon('key')}Change password</button>`
-              : html`<p class="muted small">Only the organisers can change your password. Ask at the help desk if you need a new one.</p>`}
+              : html`<p class="muted small">Only the organisers can change your password. ${melaOnly() ? 'Contact them' : 'Ask at the help desk'} if you need a new one.</p>`}
           </div>
         </section>
       </div>`
@@ -833,7 +835,7 @@ function melaForm(m, draft) {
       <legend>Has your team registered for Innovation Mela?</legend>
       <div class="mela-choices">
         <label class="mela-choice"><input type="radio" name="registered" id="mela-yes" value="yes" ${draft.registered === true ? 'checked' : ''}>
-          <span><strong>Yes, we registered</strong><small>Give the details of all 4 members exactly as you registered them.</small></span></label>
+          <span><strong>Yes, we registered</strong><small>Give the details of each member (1 to 4) exactly as you registered them.</small></span></label>
         <label class="mela-choice"><input type="radio" name="registered" id="mela-no" value="no" ${draft.registered === false ? 'checked' : ''}>
           <span><strong>No, not yet</strong><small>We’ll let the organisers know.</small></span></label>
       </div>
@@ -843,7 +845,7 @@ function melaForm(m, draft) {
       : ''}
     <div class="mela-members" ${draft.registered === true ? '' : 'hidden'}>
       ${draft.members.map((x, i) => html`<fieldset class="mela-member">
-        <legend>Member ${i + 1}${i === 0 ? ' · Team leader' : ''}</legend>
+        <legend>Member ${i + 1}${i === 0 ? ' · Team leader' : ' · optional'}</legend>
         <label class="field"><span>Registered name</span><input class="input" id="mm-${i}-name" data-mm="${i}" data-k="name" value="${x.name}" maxlength="80" autocomplete="off"></label>
         <label class="field"><span>Mobile number</span><input class="input" id="mm-${i}-mobile" data-mm="${i}" data-k="mobile" value="${x.mobile}" maxlength="20" inputmode="tel" placeholder="10-digit mobile number" autocomplete="off"></label>
         <label class="field"><span>Email ID</span><input class="input" id="mm-${i}-email" data-mm="${i}" data-k="email" type="email" value="${x.email}" maxlength="120" autocomplete="off"></label>
@@ -879,9 +881,11 @@ function bindMela() {
       return;
     }
     if (dr.registered) {
-      const gap = dr.members.findIndex((x) => !x.name.trim() || !x.mobile.trim() || !x.email.trim());
+      // Member 1 is required; members 2-4 are optional, but one that is started must be complete.
+      const started = (x) => `${x.name}${x.mobile}${x.email}`.trim() !== '';
+      const gap = dr.members.findIndex((x, i) => (i === 0 || started(x)) && (!x.name.trim() || !x.mobile.trim() || !x.email.trim()));
       if (gap >= 0) {
-        err.textContent = `Fill in the name, mobile number and email of member ${gap + 1}.`;
+        err.textContent = `Fill in the name, mobile number and email of member ${gap + 1}${gap > 0 ? ', or clear that member' : ''}.`;
         $(`#mm-${gap}-${!dr.members[gap].name.trim() ? 'name' : !dr.members[gap].mobile.trim() ? 'mobile' : 'email'}`)?.focus();
         return;
       }
@@ -1211,8 +1215,8 @@ async function render() {
     assessments: !ideathon || !(d.assessments && d.assessments.on),
     mela: !ideathon || !(d.mela && (d.mela.enabled || d.mela.only)),
   };
-  // Outside teams (Innovation Mela only) have nothing but the Innovation Mela page.
-  if (melaOnly() ? view !== 'mela' : hidden[view]) {
+  // Outside teams (Innovation Mela only) have just the Innovation Mela and My team pages.
+  if (melaOnly() ? !['mela', 'team'].includes(view) : hidden[view]) {
     location.hash = melaOnly() ? '#/mela' : '#/overview';
     return;
   }

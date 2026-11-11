@@ -30,7 +30,7 @@ export async function render(ctx, params, seq) {
     <div class="page-head">
       <div><h1 class="page-title">Innovation Mela</h1>
         <p>12–13 November 2026, by nasscom foundation and thingQbator with Amrita Vishwa Vidyapeetham, Coimbatore and IIC.
-          Teams with the “Shortlisted for Innovation Mela” award (Results page), and outside teams you add here, get an Innovation Mela tab where they tell you whether they registered, with all 4 members’ details.</p></div>
+          Teams with the “Shortlisted for Innovation Mela” award (Results page), and outside teams you add here, get an Innovation Mela tab where they tell you whether they registered, with the details of each member (1 to 4).</p></div>
       <div class="row">
         <button type="button" class="btn" data-mela-export ${d.teams.length ? '' : 'disabled'}>${icon('download')}Export CSV</button>
         <button type="button" class="btn btn-primary" data-mela-add>${icon('plus')}Add outside team</button>
@@ -60,7 +60,7 @@ export async function render(ctx, params, seq) {
         : empty(d.teams.length ? 'No teams match' : 'No teams yet',
             d.teams.length ? 'Try a different search or filter.' : 'Give teams the “Shortlisted for Innovation Mela” award on the Results page, or add outside teams here.')}
     </section>
-    <p class="small muted" style="margin-top:12px">Outside teams sign in on the portal under <strong>Ideathon → Team leader</strong> and only see the Innovation Mela tab. Edit them, reset their password or turn them off on the <a href="#/teams">Teams</a> page.</p>
+    <p class="small muted" style="margin-top:12px">Outside teams sign in on the portal under <strong>Ideathon → Team leader</strong> and see only the Innovation Mela and My team pages. Edit them, reset their password or turn them off on the <a href="#/teams">Teams</a> page.</p>
     </div>`
   );
 
@@ -112,7 +112,7 @@ function addOutsideTeam(ctx, nextCode) {
     submitLabel: 'Add team',
     wide: true,
     content: html`
-      <p class="muted">For Innovation Mela participants who aren’t in Genesis. They get an Ideathon login that only shows the Innovation Mela tab.</p>
+      <p class="muted">For Innovation Mela participants who aren’t in Genesis. They get an Ideathon login that shows only the Innovation Mela and My team pages.</p>
       <div class="form-grid">
         <label class="field"><span>Team name</span><input class="input" name="name" maxlength="80" required></label>
         <label class="field"><span>Team ID (login) <span class="hint">Leave blank for ${nextCode}</span></span><input class="input mono" name="code" maxlength="32" placeholder="${nextCode}" autocapitalize="characters" spellcheck="false"></label>
@@ -128,7 +128,7 @@ function addOutsideTeam(ctx, nextCode) {
       const res = await api('/admin/mela/teams', { method: 'POST', body: v });
       showCredentials([{ ...res.team, password: res.password }], {
         title: 'Outside team added',
-        intro: 'Passwords are shown only now. Share these privately: the team signs in under Ideathon → Team leader and only sees the Innovation Mela tab.',
+        intro: 'Passwords are shown only now. Share these privately: the team signs in under Ideathon → Team leader and sees only the Innovation Mela and My team pages.',
       });
       ctx.rerender();
     },
