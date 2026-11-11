@@ -560,6 +560,13 @@ const VIEWS = {
             <h2 class="section-title" style="margin-bottom:12px">Members</h2>
             ${t.members.length ? html`<ul class="list-plain">${t.members.map((m, i) => html`<li><span>${m}</span>${i === 0 && m === t.leader_name ? chip('judging', 'Leader') : ''}</li>`)}</ul>` : html`<p class="muted">No members listed.</p>`}
           </div>
+          ${!melaOnly() && app.data.mela && app.data.mela.registration && app.data.mela.registration.registered
+            ? html`<div class="card">
+                <h2 class="section-title" style="margin-bottom:12px">Innovation Mela</h2>
+                <p class="small muted" style="margin-bottom:8px">Members as registered for Innovation Mela.</p>
+                <ul class="list-plain">${app.data.mela.registration.members.map((m) => html`<li><span>${m.name}</span><span class="small muted">${m.mobile} · ${m.email}</span></li>`)}</ul>
+              </div>`
+            : ''}
           <div class="card">
             <h2 class="section-title" style="margin-bottom:8px">Password</h2>
             ${app.data.event.allow_password_change
