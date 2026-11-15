@@ -1,5 +1,5 @@
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, timeAgo } from '../core.js';
-import { chip, empty, showCredentials, scope } from './shared.js';
+import { chip, empty, showCredentials, scope, awardOptions } from './shared.js';
 
 // The ⋯ button's dots, drawn here so a browser still holding an older cached core.js shows them too.
 const MORE_ICON = html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>`;
@@ -9,7 +9,7 @@ const awardsOf = (text) => String(text || '').split('\n').map((a) => a.trim()).f
 
 export const live = ['teams', 'rounds', 'results', 'submission', 'settings'];
 
-// Extra team fields organisers set up in Settings → Team fields (e.g. Yukthi ID, Mentored by).
+// Extra team fields organisers set up in Settings → Team fields (e.g. Yukti ID, Mentored by).
 function teamFields() {
   try {
     const list = JSON.parse(lastCtx?.settings?.team_fields || '[]');
@@ -36,12 +36,23 @@ const FILTERS = {
   ],
   ideathon: [
     ['all', 'All', () => true],
+    ['active', 'Active', (t) => t.active],
     ['submitted', 'Idea in', (t) => t.active && t.has_submission],
     ['missing', 'No idea yet', (t) => t.active && !t.has_submission],
     ['disabled', 'Disabled', (t) => !t.active],
   ],
 };
-const filters = () => FILTERS[scope.comp].filter(([k]) => scope.comp !== 'ideathon' || scope.submissions || !['submitted', 'missing'].includes(k));
+// Ideathon: one filter per award, from Settings → Award list plus any other award a team was given.
+function awardFilters() {
+  const names = [...(lastCtx ? awardOptions(lastCtx.settings || {}) : [])];
+  for (const t of state.teams) for (const a of awardsOf(t.award)) if (!names.includes(a)) names.push(a);
+  return names.map((name) => [`award:${name}`, name, (t) => awardsOf(t.award).includes(name)]);
+}
+function filters() {
+  const list = FILTERS[scope.comp].filter(([k]) => scope.comp !== 'ideathon' || scope.submissions || !['submitted', 'missing'].includes(k));
+  if (scope.comp !== 'ideathon') return list;
+  return [...list.slice(0, -1), ...awardFilters(), list[list.length - 1]]; // awards go just before Disabled
+}
 
 const state = { teams: [], nextCode: '', filter: 'all', q: '' };
 let lastCtx = null;

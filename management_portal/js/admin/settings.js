@@ -9,7 +9,7 @@ export function leave() {
   fieldsDraft = null;
 }
 
-// Settings → Team fields: extra details organisers keep for each team (e.g. Yukthi ID, Mentored by).
+// Settings → Team fields: extra details organisers keep for each team (e.g. Yukti ID, Mentored by).
 function savedFields(s) {
   try {
     const list = JSON.parse(s.team_fields || '[]');
@@ -143,7 +143,7 @@ export async function render(ctx, params, seq) {
 
         <section class="card stack-sm" id="st-fields">
           <h2 class="section-title">Team fields</h2>
-          <p class="small muted">Extra details you keep for each team, filled in on the Teams page (Edit team). <strong>Text</strong> takes any text, like a Yukthi ID; <strong>Choice + name</strong> has a few options plus a name, like “Mentored by: Faculty, Dr. Rao”. Tick <strong>Column</strong> to show a field in the Teams list. Teams don’t see these.</p>
+          <p class="small muted">Extra details you keep for each team, filled in on the Teams page (Edit team). <strong>Text</strong> takes any text, like a Yukti ID; <strong>Choice + name</strong> has a few options plus a name, like “Mentored by: Faculty, Dr. Rao”. Tick <strong>Column</strong> to show a field in the Teams list. Teams don’t see these.</p>
           <ol class="tf-edit" data-tf-list>${fieldRows(fieldsDraft || savedFields(s))}</ol>
           <div class="row">
             <button type="button" class="btn btn-sm" data-tf-add>${icon('plus')}Add a field</button>
