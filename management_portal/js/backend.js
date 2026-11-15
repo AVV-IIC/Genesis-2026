@@ -217,9 +217,15 @@ export async function download(kind) {
     ]), 'text/csv');
   }
   if (kind === 'teams') {
+    // Plus a column for each extra team field set up in Settings → Team fields.
+    let fields = [];
+    try { fields = JSON.parse((await rpc('api_admin_settings')).settings.team_fields || '[]'); } catch { fields = []; }
+    if (!Array.isArray(fields)) fields = [];
+    const val = (f, v) => (v === undefined || v === null ? '' : f.type === 'choice' ? [v.choice, v.name].filter(Boolean).join(': ') : String(v));
     return saveFile(`genesis-${comp}-teams.csv`, toCsv([
-      ['team_id', 'team_name', 'title', 'leader_name', 'email', 'phone', 'members', 'track', comp === 'ideathon' ? 'domain' : 'table', 'active', 'last_login'],
-      ...ex.teams.map((t) => [t.code, t.name, t.title || '', t.leader_name, t.email, t.phone, (t.members || []).join('; '), t.track, t.table_no, t.active ? 'yes' : 'no', t.last_login_at || '']),
+      ['team_id', 'team_name', 'title', 'leader_name', 'email', 'phone', 'members', 'track', comp === 'ideathon' ? 'domain' : 'table', ...fields.map((f) => f.label), 'active', 'last_login'],
+      ...ex.teams.map((t) => [t.code, t.name, t.title || '', t.leader_name, t.email, t.phone, (t.members || []).join('; '), t.track, t.table_no,
+        ...fields.map((f) => val(f, (t.extra || {})[f.id])), t.active ? 'yes' : 'no', t.last_login_at || '']),
     ]), 'text/csv');
   }
   // results

@@ -1,10 +1,47 @@
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, withBusy, toLocalInput, fromLocalInput, copyText, openModal, clock, fmtDateTime, COMP_LABEL, EVENT_HOURS } from '../core.js';
 import { awardOptions } from './shared.js';
 
-// Unsaved edits to the Ideathon award list (kept across live redraws, dropped when leaving the page).
+// Unsaved edits to the Ideathon award list and the team fields (kept across live redraws, dropped when leaving the page).
 let awardDraft = null;
+let fieldsDraft = null;
 export function leave() {
   awardDraft = null;
+  fieldsDraft = null;
+}
+
+// Settings → Team fields: extra details organisers keep for each team (e.g. Yukthi ID, Mentored by).
+function savedFields(s) {
+  try {
+    const list = JSON.parse(s.team_fields || '[]');
+    return Array.isArray(list) ? list.map((f) => ({ id: f.id, label: f.label, type: f.type, options: (f.options || []).join(', '), list: !!f.list })) : [];
+  } catch {
+    return [];
+  }
+}
+const fieldRows = (list) =>
+  list.length
+    ? list.map((f, i) => html`<li>
+        <input class="input" id="tf-${i}-label" data-tf="${i}" data-k="label" value="${f.label}" maxlength="40" placeholder="Field name" aria-label="Field ${i + 1} name">
+        <select class="select" data-tf="${i}" data-k="type" aria-label="Field ${i + 1} type">
+          <option value="text" ${f.type === 'text' ? 'selected' : ''}>Text</option>
+          <option value="choice" ${f.type === 'choice' ? 'selected' : ''}>Choice + name</option>
+        </select>
+        <input class="input tf-options" id="tf-${i}-options" data-tf="${i}" data-k="options" value="${f.options}" placeholder="Choices, separated by commas" aria-label="Field ${i + 1} choices" ${f.type === 'choice' ? '' : 'hidden'}>
+        <label class="check tf-list"><input type="checkbox" data-tf="${i}" data-k="list" ${f.list ? 'checked' : ''}> Column</label>
+        <span class="tf-tools">
+          <button type="button" class="icon-btn" data-tf-move="-1" data-i="${i}" aria-label="Move field ${i + 1} up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button>
+          <button type="button" class="icon-btn" data-tf-move="1" data-i="${i}" aria-label="Move field ${i + 1} down" ${i === list.length - 1 ? 'disabled' : ''}>${icon('down')}</button>
+          <button type="button" class="icon-btn" data-tf-remove="${i}" aria-label="Remove field ${i + 1}">${icon('x')}</button>
+        </span></li>`)
+    : html`<li class="small faint">No extra fields. Add one to keep more details for each team.</li>`;
+// Field ids are made once from the name and never change, so renaming a field keeps its values.
+function fieldId(label, taken) {
+  let base = String(label || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 28) || 'field';
+  if (!/^[a-z]/.test(base)) base = `f_${base}`.slice(0, 28);
+  let id = base;
+  for (let n = 2; taken.has(id); n++) id = `${base}_${n}`;
+  taken.add(id);
+  return id;
 }
 const awardRows = (list) =>
   list.length
@@ -104,6 +141,18 @@ export async function render(ctx, params, seq) {
             </section>`
           : ''}
 
+        <section class="card stack-sm" id="st-fields">
+          <h2 class="section-title">Team fields</h2>
+          <p class="small muted">Extra details you keep for each team, filled in on the Teams page (Edit team). <strong>Text</strong> takes any text, like a Yukthi ID; <strong>Choice + name</strong> has a few options plus a name, like “Mentored by: Faculty, Dr. Rao”. Tick <strong>Column</strong> to show a field in the Teams list. Teams don’t see these.</p>
+          <ol class="tf-edit" data-tf-list>${fieldRows(fieldsDraft || savedFields(s))}</ol>
+          <div class="row">
+            <button type="button" class="btn btn-sm" data-tf-add>${icon('plus')}Add a field</button>
+            <span class="grow"></span>
+            <button type="button" class="btn btn-sm btn-primary" data-tf-save>${icon('check')}Save team fields</button>
+          </div>
+          <p class="form-error" data-tf-error role="alert"></p>
+        </section>
+
         <section class="card">
           <h2 class="section-title" style="margin-bottom:8px">Organiser accounts</h2>
           <ul class="list-plain">${admins.map(
@@ -167,6 +216,67 @@ export async function render(ctx, params, seq) {
       }
     });
   });
+
+  const fieldBox = $('#st-fields');
+  if (fieldBox) {
+    const list = () => (fieldsDraft ||= savedFields(s));
+    const redraw = (focus) => {
+      setHTML($('[data-tf-list]', fieldBox), fieldRows(list()));
+      if (focus !== undefined) document.getElementById(`tf-${focus}-label`)?.focus();
+    };
+    const onEdit = (e) => {
+      const i = e.target.dataset.tf;
+      if (i === undefined) return;
+      const f = list()[Number(i)];
+      const k = e.target.dataset.k;
+      f[k] = k === 'list' ? e.target.checked : e.target.value;
+      if (k === 'type') $(`#tf-${i}-options`, fieldBox).hidden = f.type !== 'choice';
+    };
+    fieldBox.addEventListener('input', onEdit);
+    fieldBox.addEventListener('change', onEdit);
+    fieldBox.addEventListener('click', async (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.hasAttribute('data-tf-add')) {
+        if (list().length >= 15) return toast('There can be up to 15 team fields.', 'warn');
+        list().push({ id: '', label: '', type: 'text', options: '', list: true });
+        redraw(list().length - 1);
+      } else if (b.dataset.tfMove) {
+        const i = Number(b.dataset.i);
+        const to = i + Number(b.dataset.tfMove);
+        const l = list();
+        if (to < 0 || to >= l.length) return;
+        l.splice(to, 0, l.splice(i, 1)[0]);
+        redraw();
+      } else if (b.dataset.tfRemove !== undefined) {
+        list().splice(Number(b.dataset.tfRemove), 1);
+        redraw();
+      } else if (b.hasAttribute('data-tf-save')) {
+        const err = $('[data-tf-error]', fieldBox);
+        err.textContent = '';
+        const rows = list().filter((f) => f.label.trim());
+        const taken = new Set(rows.map((f) => f.id).filter(Boolean));
+        const body = rows.map((f) => ({
+          id: f.id || fieldId(f.label, taken),
+          label: f.label.trim(),
+          type: f.type,
+          options: f.type === 'choice' ? f.options.split(',').map((o) => o.trim()).filter(Boolean) : [],
+          list: !!f.list,
+        }));
+        await withBusy(b, async () => {
+          try {
+            await api('/admin/settings', { method: 'PUT', body: { team_fields: body } });
+            fieldsDraft = null;
+            toast('Team fields saved.', 'ok');
+            await ctx.refreshMeta();
+            ctx.rerender();
+          } catch (ex) {
+            err.textContent = ex.message;
+          }
+        });
+      }
+    });
+  }
 
   const awardBox = $('#st-awards');
   if (awardBox) {

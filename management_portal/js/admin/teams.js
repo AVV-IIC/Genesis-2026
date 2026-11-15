@@ -1,10 +1,30 @@
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, timeAgo } from '../core.js';
 import { chip, empty, showCredentials, scope } from './shared.js';
 
+// The ⋯ button's dots, drawn here so a browser still holding an older cached core.js shows them too.
+const MORE_ICON = html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>`;
+
 // An Ideathon team's awards, stored one per line (defined here so a cached older shared file can't break this page).
 const awardsOf = (text) => String(text || '').split('\n').map((a) => a.trim()).filter(Boolean);
 
-export const live = ['teams', 'rounds', 'results', 'submission'];
+export const live = ['teams', 'rounds', 'results', 'submission', 'settings'];
+
+// Extra team fields organisers set up in Settings → Team fields (e.g. Yukthi ID, Mentored by).
+function teamFields() {
+  try {
+    const list = JSON.parse(lastCtx?.settings?.team_fields || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+const fieldText = (f, v) => (v === undefined || v === null ? '' : f.type === 'choice' ? [v.choice, v.name].filter(Boolean).join(': ') : String(v));
+// The Ideathon shows its team fields where "Last sign-in" used to be.
+const showLastSignIn = () => scope.comp !== 'ideathon';
+
+export function leave() {
+  closeRowMenu();
+}
 
 // Filters per competition: [key, label, test]
 const FILTERS = {
@@ -62,7 +82,7 @@ export async function render(ctx, params, seq) {
     <section class="card card-flush">
       ${state.teams.length
         ? html`<div class="table-wrap"><table class="table">
-            <thead><tr><th>Team ID</th><th>Team</th><th>Track</th><th>${scope.comp === 'ideathon' ? 'Domain' : 'Table'}</th><th class="num">Members</th><th>Status</th><th>Last sign-in</th><th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th>Team ID</th><th>Team</th><th>Track</th><th>${scope.comp === 'ideathon' ? 'Domain' : 'Table'}</th><th class="num">Members</th><th>Status</th>${teamFields().filter((f) => f.list).map((f) => html`<th>${f.label}</th>`)}${showLastSignIn() ? html`<th>Last sign-in</th>` : ''}<th class="actions"><span class="sr-only">Actions</span></th></tr></thead>
             <tbody id="t-body"></tbody></table></div>`
         : empty('No teams yet', 'Add teams one by one, or import them all at once from a spreadsheet.', html`<div class="row" style="justify-content:center"><button type="button" class="btn" id="t-import-2">${icon('upload')}Import CSV</button><button type="button" class="btn btn-primary" id="t-add-2">${icon('plus')}Add team</button></div>`)}
     </section>`
@@ -95,7 +115,8 @@ function visibleTeams() {
   return state.teams.filter((t) => {
     if (!test(t)) return false;
     if (!q) return true;
-    return [t.code, t.name, t.title, t.leader_name, t.track, t.table_no, ...t.members].some((v) => String(v || '').toLowerCase().includes(q));
+    const extras = teamFields().map((f) => fieldText(f, (t.extra || {})[f.id]));
+    return [t.code, t.name, t.title, t.leader_name, t.track, t.table_no, ...t.members, ...extras].some((v) => String(v || '').toLowerCase().includes(q));
   });
 }
 
@@ -103,8 +124,9 @@ function drawRows() {
   const body = $('#t-body');
   if (!body) return;
   const list = visibleTeams();
+  const cols = teamFields().filter((f) => f.list);
   if (!list.length) {
-    setHTML(body, html`<tr><td colspan="8" class="muted" style="text-align:center;padding:28px">No teams match.</td></tr>`);
+    setHTML(body, html`<tr><td colspan="${7 + cols.length + (showLastSignIn() ? 1 : 0)}" class="muted" style="text-align:center;padding:28px">No teams match.</td></tr>`);
     return;
   }
   setHTML(
@@ -118,20 +140,73 @@ function drawRows() {
         <td class="num">${t.members.length}</td>
         <td>${statusChips(t)}
           ${t.open_tickets ? html` <a href="#/help" class="chip chip-open chip-plain" title="Open help requests">${t.open_tickets} help</a>` : ''}</td>
-        <td class="small ${t.last_login_at ? 'muted' : 'faint'}">${t.last_login_at ? timeAgo(t.last_login_at) : 'Never'}</td>
+        ${cols.map((f) => {
+          const v = (t.extra || {})[f.id];
+          if (f.type === 'choice') {
+            return html`<td class="small">${v && (v.choice || v.name) ? html`${v.choice ? html`<span class="field-choice">${v.choice}</span> ` : ''}${v.name}` : html`<span class="faint">–</span>`}</td>`;
+          }
+          // Short values (IDs) stay on one line; longer text wraps.
+          return html`<td class="small${f.id === 'yukthi_id' ? ' mono' : ''}${String(v || '').length <= 24 ? ' nowrap' : ''}">${v || html`<span class="faint">–</span>`}</td>`;
+        })}
+        ${showLastSignIn() ? html`<td class="small ${t.last_login_at ? 'muted' : 'faint'}">${t.last_login_at ? timeAgo(t.last_login_at) : 'Never'}</td>` : ''}
         <td class="actions">
-          <button type="button" class="icon-btn" data-edit="${t.id}" aria-label="Edit ${t.name}" title="Edit">${icon('edit')}</button>
-          <button type="button" class="icon-btn" data-reset="${t.id}" aria-label="Reset password for ${t.name}" title="Reset password">${icon('key')}</button>
-          <button type="button" class="icon-btn" data-del="${t.id}" aria-label="Delete ${t.name}" title="Delete">${icon('trash')}</button>
+          <button type="button" class="icon-btn" data-menu="${t.id}" aria-label="Actions for ${t.name}" aria-haspopup="menu" aria-expanded="false" title="More">${MORE_ICON}</button>
         </td>
       </tr>`
     )
   );
   const byId = (id) => state.teams.find((t) => t.id === Number(id));
-  $$('[data-edit]', body).forEach((b) => b.addEventListener('click', () => editTeam(null, byId(b.dataset.edit))));
-  $$('[data-reset]', body).forEach((b) => b.addEventListener('click', () => resetPassword(byId(b.dataset.reset))));
-  $$('[data-del]', body).forEach((b) => b.addEventListener('click', () => deleteTeam(byId(b.dataset.del))));
+  $$('[data-menu]', body).forEach((b) =>
+    b.addEventListener('click', () => {
+      if (menu && menu.btn === b) return closeRowMenu();
+      openRowMenu(b, byId(b.dataset.menu));
+    })
+  );
 }
+
+// ---------- the ⋯ menu on each team row (Edit, Reset password, Delete) ----------------------------
+let menu = null;
+function openRowMenu(btn, team) {
+  closeRowMenu();
+  const el = document.createElement('div');
+  el.className = 'row-menu';
+  el.setAttribute('role', 'menu');
+  setHTML(el, html`
+    <button type="button" role="menuitem" data-act="edit">${icon('edit')}Edit team</button>
+    <button type="button" role="menuitem" data-act="reset">${icon('key')}Reset password</button>
+    <button type="button" role="menuitem" class="is-danger" data-act="del">${icon('trash')}Delete team</button>`);
+  document.body.append(el);
+  const r = btn.getBoundingClientRect();
+  el.style.top = `${Math.max(8, Math.min(r.bottom + 4, innerHeight - el.offsetHeight - 8))}px`;
+  el.style.left = `${Math.max(8, r.right - el.offsetWidth)}px`;
+  btn.setAttribute('aria-expanded', 'true');
+  menu = { el, btn };
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    closeRowMenu();
+    ({ edit: () => editTeam(null, team), reset: () => resetPassword(team), del: () => deleteTeam(team) })[b.dataset.act]();
+  });
+  el.querySelector('button').focus({ preventScroll: true });
+}
+function closeRowMenu() {
+  if (!menu) return;
+  menu.btn.setAttribute('aria-expanded', 'false');
+  menu.el.remove();
+  menu = null;
+}
+document.addEventListener('click', (e) => {
+  if (menu && !menu.el.contains(e.target) && !menu.btn.contains(e.target)) closeRowMenu();
+}, true);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && menu) {
+    const btn = menu.btn;
+    closeRowMenu();
+    btn.focus();
+  }
+});
+addEventListener('resize', closeRowMenu);
+addEventListener('scroll', (e) => { if (menu && !menu.el.contains(e.target)) closeRowMenu(); }, true);
 
 function statusChips(t) {
   if (!t.active) return chip('disabled', 'Disabled');
@@ -150,6 +225,7 @@ function editTeam(ctx, team) {
   if (ctx) lastCtx = ctx;
   const t = team || { code: '', name: '', title: '', leader_name: '', email: '', phone: '', members: [], track: '', table_no: '', notes: '', active: true };
   const ideathon = scope.comp === 'ideathon';
+  const fields = teamFields();
   formModal({
     title: team ? 'Edit team' : 'Add team',
     submitLabel: team ? 'Save changes' : 'Add team',
@@ -168,11 +244,34 @@ function editTeam(ctx, team) {
         ${team
           ? html`<label class="field"><span>Account</span><span class="check" style="min-height:42px"><input type="checkbox" name="active" ${t.active ? 'checked' : ''}> Team can sign in</span></label>`
           : html`<label class="field"><span>Password <span class="hint">Leave blank to generate one</span></span><input class="input mono" name="password" maxlength="100" autocomplete="off" spellcheck="false"></label>`}
+        ${fields.map((f) => {
+          const v = (t.extra || {})[f.id];
+          if (f.type !== 'choice') return html`<label class="field"><span>${f.label}</span><input class="input" name="x_${f.id}" value="${v || ''}" maxlength="200"></label>`;
+          const cur = (v && v.choice) || '';
+          return html`<div class="field"><span>${f.label}</span>
+            <div class="choice-name">
+              <div class="seg seg-radio" role="radiogroup" aria-label="${f.label}">${['', ...f.options].map((o) => html`<label><input type="radio" name="xc_${f.id}" value="${o}" ${cur === o ? 'checked' : ''}><span>${o || 'None'}</span></label>`)}</div>
+              <input class="input" name="xn_${f.id}" value="${(v && v.name) || ''}" maxlength="120" placeholder="Name" aria-label="${f.label}: name">
+            </div></div>`;
+        })}
         <label class="field span-2"><span>Members <span class="hint">One name per line, leader first</span></span><textarea class="textarea" name="members" rows="4">${t.members.join('\n')}</textarea></label>
         <label class="field span-2"><span>Organiser notes <span class="hint">Only organisers see this</span></span><textarea class="textarea" name="notes" rows="2" maxlength="1000">${t.notes}</textarea></label>
       </div>`,
     async onSubmit(v) {
       v.members = v.members.split('\n').map((m) => m.trim()).filter(Boolean);
+      if (fields.length) {
+        v.extra = {};
+        for (const f of fields) {
+          if (f.type === 'choice') {
+            v.extra[f.id] = { choice: v[`xc_${f.id}`] || '', name: v[`xn_${f.id}`] || '' };
+            delete v[`xc_${f.id}`];
+            delete v[`xn_${f.id}`];
+          } else {
+            v.extra[f.id] = v[`x_${f.id}`] || '';
+            delete v[`x_${f.id}`];
+          }
+        }
+      }
       if (team) {
         await api(`/admin/teams/${team.id}`, { method: 'PUT', body: v });
         toast('Team saved.', 'ok');
