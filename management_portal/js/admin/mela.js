@@ -26,16 +26,27 @@ export async function render(ctx, params, seq) {
 
   setHTML(
     ctx.main,
-    html`<div data-mela-root>
-    <div class="page-head">
-      <div><h1 class="page-title">Innovation Mela</h1>
-        <p>12–13 November 2026, by nasscom foundation and thingQbator with Amrita Vishwa Vidyapeetham, Coimbatore and IIC.
-          Teams with the “Shortlisted for Innovation Mela” award (Results page), and outside teams you add here, get an Innovation Mela tab where they tell you whether they registered, with the details of each member (1 to 4).</p></div>
-      <div class="row">
-        <button type="button" class="btn" data-mela-export ${d.teams.length ? '' : 'disabled'}>${icon('download')}Export CSV</button>
-        <button type="button" class="btn btn-primary" data-mela-add>${icon('plus')}Add outside team</button>
+    html`<div data-mela-root class="mela-theme">
+    <section class="card mela-hero">
+  <div class="mela-logos">
+    <img src="img/partners/amrita.png" alt="Amrita Vishwa Vidyapeetham, Coimbatore campus" width="308" height="128">
+    <img src="img/partners/iic.png" alt="Institution’s Innovation Council" width="243" height="112">
+    <img src="img/partners/thingqbator.png" alt="thingQbator" width="561" height="112">
+    <img src="img/partners/nasscom-foundation.png" alt="nasscom foundation" width="366" height="112">
+  </div>
+      <div class="mela-title mela-title-row">
+        <div class="mela-title-text">
+          <p class="mela-kicker">12 – 13 November 2026 · two days</p>
+          <h1 class="page-title mela-name"><span>Innovation</span> <span class="mela-name-hi">Mela</span></h1>
+          <p>By nasscom foundation and thingQbator with Amrita Vishwa Vidyapeetham, Coimbatore and IIC.
+            Teams with the “Shortlisted for Innovation Mela” award (Results page), and outside teams you add here, get an Innovation Mela tab where they tell you whether they registered, with the details of each member (1 to 4).</p>
+        </div>
+        <div class="row mela-actions">
+          <button type="button" class="btn" data-mela-export ${d.teams.length ? '' : 'disabled'}>${icon('download')}Export CSV</button>
+          <button type="button" class="btn btn-primary" data-mela-add>${icon('plus')}Add outside team</button>
+        </div>
       </div>
-    </div>
+    </section>
     <div style="margin-bottom:16px">${d.enabled
       ? html`<div class="callout">${icon('check')}<span><strong>Teams can see the Innovation Mela tab.</strong> <button type="button" class="btn btn-sm" data-set="0">Turn it off</button></span></div>`
       : html`<div class="callout callout-warn">${icon('eyeOff')}<span><strong>The Innovation Mela tab is turned off.</strong> Teams don’t see it. <button type="button" class="btn btn-sm" data-set="1">Turn it on</button></span></div>`}</div>

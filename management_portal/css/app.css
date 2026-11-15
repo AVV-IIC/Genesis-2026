@@ -830,13 +830,13 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .dt-meter { display: inline-flex; align-items: center; gap: 8px; }
 .dt-meter .progress { width: 80px; }
 /* ---------- Innovation Mela ---------- */
-.mela-hero { display: grid; gap: 18px; margin-bottom: 16px; padding: 0; overflow: hidden; }
+.mela-hero { display: grid; gap: 0; margin-bottom: 16px; padding: 0; overflow: hidden; }
 .mela-logos { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 34px; padding: 18px 22px; background: #fff; border-bottom: 1px solid var(--line-soft); }
 .mela-logos img { height: 46px; width: auto; max-width: 100%; object-fit: contain; }
 .mela-logos img[alt^='Amrita'] { height: 54px; }
-.mela-title { padding: 0 22px 20px; display: grid; gap: 6px; }
+.mela-title { padding: 20px 22px 22px; display: grid; gap: 6px; }
 .mela-title p { color: var(--muted); max-width: 70ch; }
-.mela-kicker { font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #b8005c !important; }
+.mela-kicker { font-weight: 700; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
 .mela-q { border: 0; padding: 0; margin: 0; min-width: 0; }
 .mela-q legend { font-weight: 600; font-size: 16px; margin-bottom: 10px; padding: 0; }
 .mela-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; }
@@ -848,12 +848,86 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .mela-members { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
 .mela-member { border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px 14px; margin: 0; display: grid; gap: 10px; min-width: 0; background: var(--surface-2); }
 .mela-member legend { padding: 0 6px; font-weight: 700; font-size: 13px; color: var(--teal); }
-.mela-banner .as-banner-icon { background: #b8005c; }
 .mela-stats { margin-bottom: 16px; }
 .mela-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
 .mela-list li span, .mela-list li a { margin-left: 8px; }
 .mela-list li a { color: var(--ocean); }
 .mela-table .chip-plain { margin-top: 4px; }
+
+/* ---------- Innovation Mela theme: thingQbator (navy, orange) × nasscom foundation (maroon, red) ---------- */
+:root {
+  --mela-navy: #00496d;
+  --mela-navy-hi: #005d8a;
+  --mela-orange: #f39c2f;
+  --mela-orange-ink: #9c5300;
+  --mela-maroon: #541215;
+  --mela-red: #cd3631;
+  --mela-navy-tint: #ebf3f8;
+  --mela-orange-tint: #fff4e6;
+  --mela-stripe: linear-gradient(90deg, var(--mela-navy) 0 34%, var(--mela-orange) 34% 52%, var(--mela-maroon) 52% 78%, var(--mela-red) 78% 100%);
+  --mela-egg: 50% 50% 50% 50% / 60% 60% 40% 40%;
+}
+/* The name: "Innovation" in thingQbator navy, "Mela" running from thingQbator orange into nasscom red. */
+.mela-name { color: var(--mela-navy); }
+.mela-name-hi { background: linear-gradient(95deg, #ec8616 0%, var(--mela-red) 80%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.card.mela-hero { padding: 0; border-color: #eadfd3; } /* edge to edge on phones too */
+.mela-hero::before { content: ''; display: block; height: 5px; background: var(--mela-stripe); }
+.mela-hero .mela-title { position: relative; isolation: isolate; overflow: hidden; background: linear-gradient(115deg, var(--mela-orange-tint) 0%, #fff 48%, var(--mela-navy-tint) 100%); }
+/* thingQbator's orange egg, large and faint, with a soft nasscom red circle */
+.mela-hero .mela-title::after { content: ''; position: absolute; z-index: -1; right: -26px; top: -40px; width: 150px; height: 190px; border-radius: var(--mela-egg); background: radial-gradient(circle at 38% 30%, #ffd193, var(--mela-orange) 72%); opacity: 0.3; transform: rotate(-14deg); }
+.mela-title p { color: #4a5a63; }
+.mela-kicker { display: inline-flex; align-items: center; gap: 8px; color: var(--mela-orange-ink) !important; }
+.mela-kicker::before { content: ''; width: 9px; height: 11px; border-radius: var(--mela-egg); background: var(--mela-orange); }
+.mela-title-row { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; justify-content: space-between; }
+.mela-title-text { display: grid; gap: 6px; flex: 1 1 440px; min-width: 0; }
+.mela-actions { position: relative; }
+
+.mela-theme .section-title, .mela-card .section-title:not(.mela-name) { color: var(--mela-navy); }
+.mela-theme .btn-primary, .mela-banner .btn-primary { background: var(--mela-navy); box-shadow: 0 1px 2px rgb(0 73 109 / 0.3), inset 0 -2px 0 rgb(0 0 0 / 0.16); }
+.mela-theme .btn-primary:hover, .mela-banner .btn-primary:hover { background: var(--mela-navy-hi); }
+.mela-theme :focus-visible { outline-color: var(--mela-orange); }
+.mela-theme .input:focus { border-color: var(--mela-navy); box-shadow: 0 0 0 3px rgb(243 156 47 / 0.3); }
+.mela-theme .chip-selected { --c: var(--mela-navy); }
+.mela-theme .chip-eliminated { --c: var(--mela-red); }
+.mela-theme .chip-upcoming { --c: var(--mela-orange-ink); }
+.mela-theme .chip-pending { --c: var(--mela-maroon); }
+.mela-theme .callout { background: var(--mela-navy-tint); border-color: #c6dae6; color: #143f57; }
+.mela-theme .callout svg { color: var(--mela-navy); }
+.mela-theme .callout-warn { background: var(--mela-orange-tint); border-color: #f4d3a6; color: #613600; }
+.mela-theme .callout-warn strong { color: #472700; }
+.mela-theme .callout-warn svg { color: var(--mela-orange-ink); }
+.mela-theme .stat b { color: var(--mela-navy); }
+.mela-theme .stat:nth-child(1) { --s: var(--mela-maroon); }
+.mela-theme .stat:nth-child(2) { --s: var(--mela-navy); }
+.mela-theme .stat:nth-child(3) { --s: var(--mela-red); }
+.mela-theme .stat:nth-child(4) { --s: var(--mela-orange); }
+.mela-theme .seg button[aria-pressed='true'] { color: var(--mela-navy); box-shadow: 0 1px 3px rgb(0 73 109 / 0.16), inset 0 -2px 0 var(--mela-orange); }
+.mela-theme .table th { background: var(--mela-navy-tint); color: var(--mela-navy); }
+.mela-theme .mela-list li a, .mela-theme p a { color: var(--mela-navy); }
+.mela-theme .mela-list li::marker { color: var(--mela-orange-ink); font-weight: 700; }
+.mela-theme .mela-choice:has(input:checked) { border-color: var(--mela-navy); background: var(--mela-navy-tint); box-shadow: 0 0 0 3px rgb(0 73 109 / 0.12); }
+.mela-theme .mela-choice input { accent-color: var(--mela-navy); }
+.mela-theme .mela-member { background: linear-gradient(180deg, #fff, var(--mela-navy-tint)); border-color: #d1e1ea; }
+.mela-theme .mela-member legend { color: var(--mela-navy); }
+.mela-theme .mela-member:first-child legend { color: var(--mela-orange-ink); }
+
+/* overview banner and the My team card */
+.as-banner.mela-banner { border-color: var(--mela-orange); background: linear-gradient(115deg, var(--mela-orange-tint), #fff 50%, var(--mela-navy-tint)); }
+.as-banner.mela-banner .as-banner-icon { background: linear-gradient(140deg, var(--mela-orange), var(--mela-red)); }
+.mela-banner strong { color: var(--mela-navy); }
+.mela-card { border-color: #f0d6b4; background: linear-gradient(160deg, var(--mela-orange-tint), #fff 55%); }
+
+/* the tab's name in the menus */
+.tabs a[data-tab='mela'] { color: var(--mela-navy); }
+.tabs a[data-tab='mela']::before { content: ''; flex: none; width: 8px; height: 10px; border-radius: var(--mela-egg); background: var(--mela-orange); }
+.tabs a[data-tab='mela'][aria-current='page'] { color: var(--mela-navy); border-image: linear-gradient(90deg, var(--mela-orange), var(--mela-red)) 1; }
+.sidebar .nav a[data-view='mela'] { color: #ffc782; }
+.sidebar .nav a[data-view='mela'] svg, .sidebar .nav a[data-view='mela'][aria-current='page'] svg { color: var(--mela-orange); }
+.sidebar .nav a[data-view='mela']:hover { color: #ffe1ba; }
+.sidebar .nav a[data-view='mela'][aria-current='page'] { background: rgb(243 156 47 / 0.17); color: #fff; box-shadow: inset 3px 0 0 var(--mela-orange); }
+.mobile-bar .nav a[data-view='mela'] { color: var(--mela-navy); }
+.mobile-bar .nav a[data-view='mela'] svg { color: var(--mela-orange); }
+.mobile-bar .nav a[data-view='mela'][aria-current='page'] { background: var(--mela-orange-tint); color: var(--mela-navy); }
 /* ---------- team fields: ⋯ row menu, choice + name, Settings editor ---------- */
 .row-menu { position: fixed; z-index: 60; min-width: 190px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-lg); display: grid; gap: 2px; }
 .row-menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: 500 14px var(--f-body); text-align: left; cursor: pointer; }

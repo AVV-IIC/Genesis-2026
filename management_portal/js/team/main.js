@@ -387,7 +387,7 @@ const VIEWS = {
     if (seq !== app.seq) return;
     app.mela = m;
     if (!m.enabled) {
-      setHTML(main, html`${melaHero()}<div class="card">${empty('Innovation Mela isn’t open right now', 'The organisers will open this page for the event. Please check back soon.')}</div>`);
+      setHTML(main, html`<div class="mela-theme">${melaHero()}<div class="card">${empty('Innovation Mela isn’t open right now', 'The organisers will open this page for the event. Please check back soon.')}</div></div>`);
       return;
     }
     if (!app.melaDraft) {
@@ -396,7 +396,7 @@ const VIEWS = {
       // Always 4 slots, so a team that saved fewer members can add more later.
       app.melaDraft = { registered: reg ? reg.registered : null, members: saved ? [0, 1, 2, 3].map((i) => saved[i] || { name: '', mobile: '', email: '' }) : melaPrefill(m.team) };
     }
-    setHTML(main, html`${melaHero()}${melaForm(m, app.melaDraft)}`);
+    setHTML(main, html`<div class="mela-theme">${melaHero()}${melaForm(m, app.melaDraft)}</div>`);
     bindMela();
   },
 
@@ -561,8 +561,8 @@ const VIEWS = {
             ${t.members.length ? html`<ul class="list-plain">${t.members.map((m, i) => html`<li><span>${m}</span>${i === 0 && m === t.leader_name ? chip('judging', 'Leader') : ''}</li>`)}</ul>` : html`<p class="muted">No members listed.</p>`}
           </div>
           ${!melaOnly() && app.data.mela && app.data.mela.registration && app.data.mela.registration.registered
-            ? html`<div class="card">
-                <h2 class="section-title" style="margin-bottom:12px">Innovation Mela</h2>
+            ? html`<div class="card mela-card">
+                <h2 class="section-title mela-name" style="margin-bottom:12px"><span>Innovation</span> <span class="mela-name-hi">Mela</span></h2>
                 <p class="small muted" style="margin-bottom:8px">Members as registered for Innovation Mela.</p>
                 <ul class="list-plain">${app.data.mela.registration.members.map((m) => html`<li><span>${m.name}</span><span class="small muted">${m.mobile} · ${m.email}</span></li>`)}</ul>
               </div>`
@@ -820,7 +820,7 @@ const melaHero = () => html`<section class="card mela-hero">
   </div>
   <div class="mela-title">
     <p class="mela-kicker">12 – 13 November 2026 · two days</p>
-    <h1 class="page-title">Innovation Mela</h1>
+    <h1 class="page-title mela-name"><span>Innovation</span> <span class="mela-name-hi">Mela</span></h1>
     <p>Hosted by nasscom foundation and thingQbator, in collaboration with Amrita Vishwa Vidyapeetham, Coimbatore and its Institution’s Innovation Council (IIC).</p>
   </div>
 </section>`;
