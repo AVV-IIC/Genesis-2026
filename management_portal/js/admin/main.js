@@ -15,11 +15,12 @@ import * as settings from './settings.js';
 import * as judges from './judges.js';
 import * as submissions from './submissions.js';
 import * as results from './results.js';
+import { evalView } from './evaluation.js';
 import * as design from './design.js';
 import * as assessments from './assessments.js';
 import * as mela from './mela.js';
 
-const VIEWS = { dashboard, teams, judges, rounds, submissions, design, assessments, mela, results, announcements, help, schedule, leaderboard, settings };
+const VIEWS = { dashboard, teams, judges, rounds, submissions, design, assessments, mela, results, 'mela-results': evalView('mela'), announcements, help, schedule, leaderboard, settings };
 // Each competition has its own console; the Ideathon has no rounds, scores or judges.
 const NAV = {
   hackathon: [
@@ -40,7 +41,8 @@ const NAV = {
     ['design', 'Design Thinking', 'sparkle'],
     ['assessments', 'Assessments', 'clipboard'],
     ['mela', 'Innovation Mela', 'zap'],
-    ['results', 'Results', 'award'],
+    // A dropdown: one results page per event.
+    ['results', 'Results', 'award', null, null, [['results', 'Genesis'], ['mela-results', 'Innovation Mela']]],
     ['announcements', 'Announcements', 'megaphone'],
     ['help', 'Help desk', 'help', 'tickets_unread'],
     ['schedule', 'Schedule', 'calendar'],
@@ -48,7 +50,19 @@ const NAV = {
   ],
 };
 const navFor = (m) => NAV[m.competition].filter(([, , , , show]) => !show || show(m));
-const allowed = (view) => navFor(ctx.meta).some(([id]) => id === view);
+const allowed = (view) => navFor(ctx.meta).some(([id, , , , , kids]) => id === view || (kids || []).some(([k]) => k === view));
+// Menu groups the organiser opened (a group is always open while one of its pages is showing).
+const openGroups = new Set();
+const CHEVRON = raw('<svg class="nav-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-nav-group]');
+  if (!b) return;
+  const id = b.dataset.navGroup;
+  const open = b.getAttribute('aria-expanded') !== 'true';
+  if (open) openGroups.add(id);
+  else openGroups.delete(id);
+  renderNav();
+});
 
 const main = $('#main');
 const ctx = {
@@ -93,10 +107,17 @@ function renderNav() {
   $('[data-me-name]').textContent = m.me.name;
   $('[data-me-user]').textContent = `@${m.me.username}`;
   document.title = `Organiser console · ${m.settings.event_name}`;
-  const nav = navFor(m).map(
-    ([id, label, ic, badgeKey]) =>
-      html`<a href="#/${id}" data-view="${id}" ${ctx.view === id ? raw('aria-current="page"') : ''}>${icon(ic)}<span>${label}</span>${badgeKey && m[badgeKey] ? html`<span class="badge">${m[badgeKey]}</span>` : ''}</a>`
-  );
+  const nav = navFor(m).map(([id, label, ic, badgeKey, , kids]) => {
+    if (kids) {
+      const here = kids.some(([k]) => k === ctx.view);
+      const open = here || openGroups.has(id);
+      return html`<div class="nav-group${open ? ' is-open' : ''}${here ? ' is-here' : ''}">
+        <button type="button" class="nav-group-btn" data-nav-group="${id}" aria-expanded="${String(open)}">${icon(ic)}<span>${label}</span>${CHEVRON}</button>
+        <div class="nav-sub">${kids.map(([k, kl]) => html`<a href="#/${k}" data-view="${k}" ${ctx.view === k ? raw('aria-current="page"') : ''}><span class="nav-sub-pre">${label} · </span>${kl}</a>`)}</div>
+      </div>`;
+    }
+    return html`<a href="#/${id}" data-view="${id}" ${ctx.view === id ? raw('aria-current="page"') : ''}>${icon(ic)}<span>${label}</span>${badgeKey && m[badgeKey] ? html`<span class="badge">${m[badgeKey]}</span>` : ''}</a>`;
+  });
   $$('[data-nav]').forEach((el) => setHTML(el, nav));
 }
 
@@ -144,7 +165,7 @@ const metaSoon = debounce(() => refreshMeta().catch(() => {}), 300);
   startRouter('dashboard', onRoute);
 
   const handlers = {};
-  for (const type of ['teams', 'rounds', 'sheet', 'results', 'announcement', 'announcements', 'schedule', 'settings', 'ticket', 'judges', 'submission', 'design', 'assessment', 'mela']) {
+  for (const type of ['teams', 'rounds', 'sheet', 'results', 'announcement', 'announcements', 'schedule', 'settings', 'ticket', 'judges', 'submission', 'design', 'assessment', 'mela', 'eval']) {
     handlers[type] = (data) => {
       if (type === 'ticket' && (data.kind === 'new' || data.kind === 'reply')) {
         const who = data.team ? ` · ${data.team}` : '';

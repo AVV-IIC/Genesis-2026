@@ -949,6 +949,85 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
   .tf-edit .tf-options { grid-column: 1 / -1; }
   .tf-edit .tf-list, .tf-edit .tf-tools { grid-area: auto; }
 }
+/* ---------- organiser menu: groups that open (Results → Genesis / Innovation Mela) ---------- */
+.nav-group-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: 600 14px var(--f-body); text-align: left; cursor: pointer; }
+.nav-group-btn svg { width: 18px; height: 18px; flex: none; }
+.nav-group-btn .nav-chev { width: 16px; height: 16px; margin-left: auto; transition: transform 0.18s ease; }
+.nav-group-btn[aria-expanded='true'] .nav-chev { transform: rotate(180deg); }
+.nav-group-btn:hover { background: var(--surface-3); color: var(--text); }
+.nav-sub { display: none; gap: 2px; margin: 2px 0 6px 19px; padding-left: 12px; border-left: 1px solid var(--line); }
+.nav-group.is-open .nav-sub { display: grid; }
+.nav-sub a { padding: 7px 10px; font-size: 13.5px; gap: 10px; }
+.nav-sub a::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
+.nav-sub a[data-view='mela-results']::before { width: 8px; height: 10px; border-radius: var(--mela-egg); background: var(--mela-orange); }
+.nav-sub-pre { display: none; }
+.sidebar .nav-group-btn { color: #b5d3cc; }
+.sidebar .nav-group-btn:hover { background: rgb(255 255 255 / 0.07); color: #fff; }
+.sidebar .nav-group.is-here .nav-group-btn { color: #fff; }
+.sidebar .nav-group.is-here .nav-group-btn svg { color: var(--mint); }
+.sidebar .nav-sub { border-left-color: rgb(255 255 255 / 0.16); }
+.sidebar .nav a[data-view='mela-results'] { color: #ffc782; }
+.sidebar .nav a[data-view='mela-results']:hover { color: #ffe1ba; }
+.sidebar .nav a[data-view='mela-results'][aria-current='page'] { background: rgb(243 156 47 / 0.17); color: #fff; box-shadow: inset 3px 0 0 var(--mela-orange); }
+/* phones: the menu is one scrolling row, so the group's pages show as plain links */
+.mobile-bar .nav-group, .mobile-bar .nav-group .nav-sub { display: contents; }
+.mobile-bar .nav-group-btn { display: none; }
+.mobile-bar .nav-sub-pre { display: inline; }
+.mobile-bar .nav a[data-view='mela-results'] { color: var(--mela-navy); }
+.mobile-bar .nav a[data-view='mela-results'][aria-current='page'] { background: var(--mela-orange-tint); }
+
+/* ---------- Results: judges' marks (Genesis and Innovation Mela) ---------- */
+.page-tabs { margin: -6px 0 18px; border-bottom: 1px solid var(--line-soft); }
+.page-tabs a svg { width: 16px; height: 16px; }
+.eval-hero { margin-bottom: 16px; }
+.eval-setup { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; margin-bottom: 16px; align-items: start; }
+.eval-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.eval-list li { display: flex; align-items: center; gap: 4px; padding: 8px 4px 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.eval-list-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.eval-list-main small { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.eval-add-judge { display: flex; gap: 8px; }
+.eval-add-judge .input { flex: 1; min-width: 0; }
+.eval-toolbar { flex-wrap: wrap; }
+.eval-judgebar { gap: 10px; }
+.eval-judgebar .label { margin-right: 2px; }
+.eval-callout { margin-bottom: 14px; }
+.eval-table td.num, .eval-table th.num { text-align: right; }
+.eval-table th small { font-weight: 500; color: var(--faint); }
+.eval-table .th-btn { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.eval-table .th-btn:hover { color: var(--teal); }
+.eval-n { display: block; font: 500 11.5px var(--f-body); letter-spacing: 0; }
+.eval-table .eval-rank-col { width: 64px; text-align: center; }
+.eval-part { color: var(--warn); margin-left: 2px; font-weight: 700; }
+.eval-sheet .ev-mark { width: 84px; min-height: 38px; padding: 6px 8px; text-align: right; font-variant-numeric: tabular-nums; margin-left: auto; }
+.eval-sheet .ev-mark:invalid { border-color: var(--bad); box-shadow: 0 0 0 3px rgb(200 60 50 / 0.15); }
+.eval-sheet [data-comment] { min-width: 200px; min-height: 38px; padding: 6px 10px; }
+.eval-comment-h { min-width: 220px; }
+.eval-rank { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 99px; background: var(--surface-3); font: 700 13px var(--f-mono); }
+.eval-top-1 .eval-rank { background: #f6d77a; color: #4a3500; }
+.eval-top-2 .eval-rank { background: #dfe5ea; color: #33414c; }
+.eval-top-3 .eval-rank { background: #edc7a4; color: #4d2a0c; }
+.eval-note { padding: 10px 16px 14px; }
+.eval-crit { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.eval-crit li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.eval-max { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.eval-max .input { width: 86px; }
+.mela-theme .eval-table .th-btn:hover { color: var(--mela-navy); }
+.mela-theme .eval-list li { background: var(--mela-navy-tint); }
+@media (max-width: 900px) {
+  .eval-setup { grid-template-columns: 1fr; }
+}
+@media print {
+  #print-area.print-eval { display: block !important; font: 10pt/1.35 var(--f-body); color: #000; }
+  .print-eval header { margin-bottom: 4mm; }
+  .print-eval h1 { font: 800 18pt/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 1mm; }
+  .print-eval header p { margin: 0; color: #333; }
+  .print-eval table { width: 100%; border-collapse: collapse; }
+  .print-eval th, .print-eval td { border: 1px solid #888; padding: 1.6mm 2mm; text-align: left; vertical-align: top; }
+  .print-eval th { background: #eee; font-weight: 700; }
+  .print-eval tr { break-inside: avoid; }
+  .print-eval td:not(:first-child) { min-width: 14mm; }
+  .print-eval .pe-wide { width: 30%; }
+}
 .award-edit { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
 .award-edit li { display: flex; gap: 6px; align-items: center; }
 .award-edit .input { flex: 1; min-width: 0; }

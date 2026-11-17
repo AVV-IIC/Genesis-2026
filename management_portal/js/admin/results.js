@@ -1,6 +1,10 @@
 // Ideathon results: any number of awards and a note per team, published all at once.
 import { $, $$, api, html, setHTML, icon, formModal, confirmDialog, toast, toastError, plural } from '../core.js';
 import { chip, empty, awardOptions } from './shared.js';
+import { evalView, genesisTabs } from './evaluation.js';
+
+// Results → Genesis has two tabs: awards & publish (this file) and the judges' marks (#/results/marks).
+const marks = evalView('genesis');
 
 // A team's awards, stored one per line. Defined here rather than shared, so a cached older copy of another
 // file right after an update can't stop this page from loading.
@@ -19,6 +23,7 @@ addEventListener('beforeunload', (e) => {
 });
 
 export async function render(ctx, params, seq) {
+  if (params[0] === 'marks') return marks.render(ctx, params, seq);
   const d = await api('/admin/results');
   if (!ctx.isCurrent(seq)) return;
   S.teams = d.teams;
@@ -31,7 +36,7 @@ export async function render(ctx, params, seq) {
     ctx.main,
     html`
     <div class="page-head">
-      <div><h1 class="page-title">Results</h1><p>Give awards to teams (a team can have several) and add a short note for any team. Teams see their awards and note on their dashboard once you publish.</p></div>
+      <div><h1 class="page-title">Genesis results</h1><p>Give awards to teams (a team can have several) and add a short note for any team. Teams see their awards and note on their dashboard once you publish. The judges’ marks are on the next tab.</p></div>
       <div class="row">
         <button type="button" class="btn" data-download="results">${icon('download')}Export CSV</button>
         ${S.published
@@ -39,6 +44,7 @@ export async function render(ctx, params, seq) {
           : html`<button type="button" class="btn btn-primary" id="r-publish">${icon('send')}Publish results</button>`}
       </div>
     </div>
+    ${genesisTabs('awards')}
     <div style="margin-bottom:16px">${S.published
       ? html`<div class="callout">${icon('eye')}<span><strong>Published.</strong> Teams can see their results. Changes you make now show up for them straight away.</span></div>`
       : html`<div class="callout callout-warn">${icon('eyeOff')}<span><strong>Hidden from teams.</strong> ${awarded ? `${plural(awarded, 'team')} ${awarded === 1 ? 'has' : 'have'} an award so far.` : 'No awards given yet.'} Publish when you’re ready.</span></div>`}</div>
@@ -104,6 +110,7 @@ export async function render(ctx, params, seq) {
 }
 
 export function leave() {
+  marks.leave();
   for (const [id, t] of S.timers) {
     clearTimeout(t);
     const tr = $(`tr[data-team="${id}"]`);
@@ -112,6 +119,7 @@ export function leave() {
 }
 
 export function onEvent(type, data, ctx) {
+  if (ctx.params[0] === 'marks') return marks.onEvent(type, data, ctx);
   // Don't re-render under someone typing an award or a note.
   if (S.timers.size || chains.size) return true;
   if (live.includes(type)) ctx.rerender();
