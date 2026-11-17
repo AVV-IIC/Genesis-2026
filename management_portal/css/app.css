@@ -988,8 +988,40 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
 .eval-add-judge { display: flex; gap: 8px; }
 .eval-add-judge .input { flex: 1; min-width: 0; }
 .eval-toolbar { flex-wrap: wrap; }
-.eval-judgebar { gap: 10px; }
-.eval-judgebar .label { margin-right: 2px; }
+/* panels and judges (setup) */
+.eval-panels { display: grid; gap: 10px; }
+.eval-panel { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface-2); }
+.eval-panel.is-loose { border-style: dashed; }
+.eval-panel-head { display: flex; align-items: center; gap: 8px; }
+.eval-panel-head strong { font-size: 14.5px; }
+.eval-panel p { margin: 0; }
+.eval-panel p svg { width: 13px; height: 13px; vertical-align: -2px; }
+.eval-judge-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.eval-judge-chips li { display: inline-flex; align-items: center; padding: 1px 2px 1px 11px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line-soft); font-size: 13.5px; font-weight: 600; }
+.mela-theme .eval-panel { background: var(--mela-navy-tint); border-color: #d1e1ea; }
+/* panels and judges (picking whose marks to see) */
+.eval-judgebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-bottom: 14px; }
+.eval-jgroup { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 3px; background: var(--surface-3); border: 1px solid var(--line-soft); border-radius: 11px; }
+.eval-jgroup-name { padding: 0 8px 0 6px; font: 700 11px var(--f-body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.eval-jbtn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: 600 13px var(--f-body); cursor: pointer; }
+.eval-jbtn svg { width: 15px; height: 15px; }
+.eval-jbtn:hover { color: var(--text); }
+.eval-jall { padding: 9px 13px; border: 1px solid var(--line-soft); border-radius: 11px; background: var(--surface-3); }
+.eval-jbtn[aria-pressed='true'] { background: var(--surface); color: var(--brand-ink); box-shadow: 0 1px 3px rgb(16 48 48 / 0.14); }
+.eval-count { min-width: 20px; padding: 1px 6px; border-radius: 99px; background: rgb(0 0 0 / 0.06); font: 600 11.5px var(--f-mono); text-align: center; }
+.mela-theme .eval-jbtn[aria-pressed='true'] { color: var(--mela-navy); box-shadow: 0 1px 3px rgb(0 73 109 / 0.16), inset 0 -2px 0 var(--mela-orange); }
+.mela-theme .eval-jgroup-name { color: var(--mela-orange-ink); }
+/* panel cards, a judge's marks, editing */
+.eval-panel-card { margin-bottom: 14px; }
+.eval-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+.eval-card-head h3 { margin: 0 0 4px; font: 700 20px/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.03em; color: var(--brand-ink); }
+.eval-card-head small { color: var(--muted); }
+.eval-empty { padding: 16px; margin: 0; }
+.eval-note-out { margin: 2px 2px 0; }
+.eval-other { color: var(--warn); font-weight: 600; }
+.eval-editing { border-color: var(--teal-logo); box-shadow: 0 0 0 3px rgb(32 160 144 / 0.12); }
+.mela-theme .eval-card-head h3 { color: var(--mela-navy); }
+.mela-theme .eval-editing { border-color: var(--mela-orange); box-shadow: 0 0 0 3px rgb(243 156 47 / 0.18); }
 .eval-callout { margin-bottom: 14px; }
 .eval-table td.num, .eval-table th.num { text-align: right; }
 .eval-table th small { font-weight: 500; color: var(--faint); }
@@ -1021,6 +1053,7 @@ dialog.modal[open] { animation: modal-in 0.2s ease-out; }
   .print-eval header { margin-bottom: 4mm; }
   .print-eval h1 { font: 800 18pt/1 var(--f-display); text-transform: uppercase; letter-spacing: 0.02em; margin: 0 0 1mm; }
   .print-eval header p { margin: 0; color: #333; }
+  .print-eval h2 { font: 700 13pt/1 var(--f-display); text-transform: uppercase; margin: 5mm 0 2mm; }
   .print-eval table { width: 100%; border-collapse: collapse; }
   .print-eval th, .print-eval td { border: 1px solid #888; padding: 1.6mm 2mm; text-align: left; vertical-align: top; }
   .print-eval th { background: #eee; font-weight: 700; }

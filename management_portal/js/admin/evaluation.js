@@ -1,21 +1,23 @@
 // Ideathon results, evaluated per event: Genesis (#/results/marks) and Innovation Mela (#/mela-results).
-// Each event has its own rounds (each with criteria and maximum marks) and its own judges. Organisers type in each
-// judge's marks for each team; the page works out each judge's total, the average per round, the overall total and
-// the rank. Marks stay with the organisers. Only helpers that core.js and shared.js have exported for a long time are
-// used here, so a browser still holding older cached copies of those files keeps working.
+// Each event has its own rounds (each with criteria and maximum marks) and its own judges, who sit in panels. Each
+// panel marks its own teams: organisers pick a judge and type in that judge's marks. A team's mark for a round is its
+// panel's average (the average of the panel's judges who marked it); the overall total adds up the rounds and ranks
+// the teams. Viewing shows only the teams that have marks; editing a judge's marks lists every team.
+// Marks stay with the organisers. Only helpers that core.js and shared.js have exported for a long time are used
+// here, so a browser still holding older cached copies of those files keeps working.
 import { $, $$, api, html, raw, setHTML, icon, formModal, confirmDialog, toast, toastError, plural, fmtScore, downloadText, fmtDateTime, preserveInputs } from '../core.js';
 import { empty } from './shared.js';
 
 const EVENTS = {
   genesis: {
     title: 'Genesis results',
-    intro: 'Judges’ marks for the Genesis Ideathon. Add the rounds (each with its own criteria and maximum marks) and the judges, then type in each judge’s marks for each team. Only organisers see the marks.',
+    intro: 'Judges’ marks for the Genesis Ideathon. Add the rounds (each with its own criteria and maximum marks), the panels and their judges, then type in each judge’s marks. Only organisers see the marks.',
     file: 'genesis',
     noTeams: 'Add Ideathon teams on the Teams page first.',
   },
   mela: {
     title: 'Innovation Mela results',
-    intro: 'Judges’ marks for Innovation Mela: the teams shortlisted for Innovation Mela and the outside teams. Add the rounds and the judges, then type in each judge’s marks for each team. Only organisers see the marks.',
+    intro: 'Judges’ marks for Innovation Mela: the teams shortlisted for Innovation Mela and the outside teams. Add the rounds, the panels and their judges, then type in each judge’s marks. A team’s mark is its panel’s average. Only organisers see the marks.',
     file: 'innovation-mela',
     noTeams: 'Teams appear here once they get the “Shortlisted for Innovation Mela” award (Genesis results) or when you add outside teams on the Innovation Mela page.',
   },
@@ -25,6 +27,7 @@ const r2 = (n) => Math.round(n * 100) / 100;
 const fmt = (n) => (n === null || n === undefined ? '–' : fmtScore(r2(n)));
 const roundMax = (r) => r.criteria.reduce((s, c) => s + Number(c.max_score), 0);
 const sel = (on) => (on ? raw('aria-current="page"') : '');
+const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
 
 /** The two tabs at the top of Results → Genesis. */
 export const genesisTabs = (active) => html`<nav class="tabs page-tabs" aria-label="Genesis results">
@@ -42,12 +45,24 @@ function csvText(rows) {
 
 export function evalView(event) {
   const E = EVENTS[event];
-  const S = { d: null, view: null, judge: 'all', q: '', timers: new Map() };
+  // view: a round id or 'overall' · judge: 'all' (the panels) or a judge id · edit: typing that judge's marks
+  const S = { d: null, view: null, judge: 'all', edit: false, q: '', timers: new Map(), groups: [] };
   const chains = new Map();
   let M = new Map(); // `${judge}:${team}:${criterion}` -> mark
   let C = new Map(); // `${judge}:${team}:${round}` -> comment
 
-  // ---------- numbers ----------
+  // ---------- panels and numbers ----------
+  const hasPanels = () => S.d.panels.length > 0;
+  // The panels with their judges, plus judges not in a panel (all the judges, when there are no panels).
+  function panelGroups() {
+    const d = S.d;
+    const known = new Set(d.panels.map((p) => p.id));
+    const out = d.panels.map((p) => ({ id: p.id, name: p.name, judges: d.judges.filter((j) => j.panel_id === p.id) }));
+    const loose = d.judges.filter((j) => !j.panel_id || !known.has(j.panel_id));
+    if (loose.length || !d.panels.length) out.push({ id: 0, name: d.panels.length ? 'Not in a panel' : 'Judges', judges: loose, loose: true });
+    return out;
+  }
+  const groupOf = (jid) => S.groups.find((g) => g.judges.some((j) => j.id === jid));
   function judgeTotal(r, jid, tid) {
     let sum = 0;
     let n = 0;
@@ -60,21 +75,29 @@ export function evalView(event) {
     }
     return n ? { sum, n, complete: n === r.criteria.length } : null;
   }
-  function roundAvg(r, tid) {
-    const ts = S.d.judges.map((j) => judgeTotal(r, j.id, tid)).filter(Boolean);
-    return ts.length ? { avg: ts.reduce((s, x) => s + x.sum, 0) / ts.length, n: ts.length } : null;
+  function groupAvg(r, g, tid) {
+    const ts = g.judges.map((j) => judgeTotal(r, j.id, tid)).filter(Boolean);
+    return ts.length ? { avg: mean(ts.map((x) => x.sum)), n: ts.length } : null;
   }
-  // Each round's mark is the judges' average; the total adds the rounds; equal totals share a rank.
+  // A team's mark for a round is its panel's average. (If two panels marked the same team, it's the average of the two.)
+  function roundScore(r, tid) {
+    const per = S.groups.map((g) => ({ g, a: groupAvg(r, g, tid) })).filter((x) => x.a);
+    return per.length ? { score: mean(per.map((x) => x.a.avg)), groups: per.map((x) => x.g) } : null;
+  }
+  // Only the teams that have marks; equal totals share a rank.
   function standings() {
-    const rows = S.d.teams.map((t) => {
-      const per = S.d.rounds.map((r) => roundAvg(r, t.id)?.avg ?? null);
-      return { t, per, any: per.some((v) => v !== null), total: per.reduce((s, v) => s + (v || 0), 0), rank: null };
+    const rows = S.d.teams
+      .map((t) => {
+        const per = S.d.rounds.map((r) => roundScore(r, t.id));
+        const names = [...new Set(per.filter(Boolean).flatMap((x) => x.groups.map((g) => g.name)))];
+        return { t, per: per.map((x) => (x ? x.score : null)), panels: names, total: per.reduce((s, x) => s + (x ? x.score : 0), 0) };
+      })
+      .filter((x) => x.per.some((v) => v !== null))
+      .sort((a, b) => b.total - a.total || a.t.code.localeCompare(b.t.code));
+    rows.forEach((x, i) => {
+      x.rank = i > 0 && r2(rows[i - 1].total) === r2(x.total) ? rows[i - 1].rank : i + 1;
     });
-    const ranked = rows.filter((x) => x.any).sort((a, b) => b.total - a.total || a.t.code.localeCompare(b.t.code));
-    ranked.forEach((x, i) => {
-      x.rank = i > 0 && r2(ranked[i - 1].total) === r2(x.total) ? ranked[i - 1].rank : i + 1;
-    });
-    return [...ranked, ...rows.filter((x) => !x.any)];
+    return rows;
   }
   const matches = (t) => {
     const q = S.q.trim().toLowerCase();
@@ -86,6 +109,7 @@ export function evalView(event) {
   async function render(ctx, params, seq) {
     const d = await api(`/admin/eval/${event}`);
     if (!ctx.isCurrent(seq)) return;
+    d.panels = d.panels || [];
     S.d = d;
     M = new Map(d.marks.map(([j, t, c, s]) => [`${j}:${t}:${c}`, Number(s)]));
     C = new Map(d.comments.map((x) => [`${x.judge_id}:${x.team_id}:${x.round_id}`, x.comment]));
@@ -94,8 +118,10 @@ export function evalView(event) {
 
   function draw(ctx) {
     const d = S.d;
+    S.groups = panelGroups();
     if (S.view !== 'overall' && !d.rounds.some((r) => r.id === S.view)) S.view = d.rounds.length ? d.rounds[0].id : 'overall';
     if (S.judge !== 'all' && !d.judges.some((j) => j.id === S.judge)) S.judge = 'all';
+    if (S.judge === 'all' || S.view === 'overall') S.edit = false;
     const round = d.rounds.find((r) => r.id === S.view) || null;
     setHTML(
       ctx.main,
@@ -104,7 +130,7 @@ export function evalView(event) {
         ${setup()}
         ${d.rounds.length
           ? board(round)
-          : html`<section class="card">${empty('No rounds yet', 'Add a round with its criteria and maximum marks, for example Innovation /10, Feasibility /10 and Presentation /10. Then add the judges and type in their marks.',
+          : html`<section class="card">${empty('No rounds yet', 'Add a round with its criteria and maximum marks, for example Innovation /10, Feasibility /10 and Presentation /10. Then add the panels and judges and type in their marks.',
               html`<button type="button" class="btn btn-primary" data-ev-add-round>${icon('plus')}Add a round</button>`)}</section>`}
       </div>`
     );
@@ -114,7 +140,7 @@ export function evalView(event) {
 
   const actions = () => html`
     <button type="button" class="btn" data-ev-csv ${S.d.rounds.length ? '' : 'disabled'}>${icon('download')}Results CSV</button>
-    <button type="button" class="btn" data-ev-marks-csv ${S.d.marks.length || M.size ? '' : 'disabled'}>${icon('download')}All marks CSV</button>
+    <button type="button" class="btn" data-ev-marks-csv ${M.size ? '' : 'disabled'}>${icon('download')}All marks CSV</button>
     <button type="button" class="btn" data-ev-print ${S.d.rounds.length ? '' : 'disabled'}>${icon('printer')}Print</button>`;
 
   const head = () =>
@@ -135,6 +161,7 @@ export function evalView(event) {
         </div>
         ${genesisTabs('marks')}`;
 
+  // ---------- setup: rounds, panels and judges ----------
   const setup = () => html`<div class="eval-setup">
     <section class="card stack-sm" id="ev-rounds">
       <div class="row-between"><h2 class="section-title">Rounds</h2>
@@ -149,21 +176,36 @@ export function evalView(event) {
         : html`<p class="small muted">No rounds yet.</p>`}
     </section>
     <section class="card stack-sm" id="ev-judges">
-      <h2 class="section-title">Judges</h2>
-      ${S.d.judges.length
-        ? html`<ul class="eval-list eval-judges">${S.d.judges.map((j) => html`<li>
-            <div class="eval-list-main"><strong>${j.name}</strong></div>
-            <button type="button" class="icon-btn" data-ev-edit-judge="${j.id}" aria-label="Rename ${j.name}" title="Rename">${icon('edit')}</button>
-            <button type="button" class="icon-btn" data-ev-del-judge="${j.id}" aria-label="Remove ${j.name}" title="Remove">${icon('x')}</button>
-          </li>`)}</ul>`
-        : html`<p class="small muted">No judges yet. Add each judge by name; they don’t need a login.</p>`}
-      <form class="eval-add-judge" data-ev-judge-form novalidate>
-        <input class="input" id="ev-judge-name" maxlength="80" placeholder="Judge’s name, e.g. Dr. Meera" aria-label="New judge’s name" autocomplete="off">
-        <button type="submit" class="btn btn-sm">${icon('plus')}Add judge</button>
-      </form>
+      <div class="row-between"><h2 class="section-title">Panels &amp; judges</h2>
+        <button type="button" class="btn btn-sm" data-ev-add-panel>${icon('plus')}Add a panel</button></div>
+      <p class="small muted">${hasPanels()
+        ? 'Each panel marks its own teams. A team’s mark for a round is the average of its panel’s judges.'
+        : 'If different judges mark different teams, add a panel for each group of judges: a team’s mark is then its panel’s average. Without panels, it’s the average of every judge who marked the team.'}</p>
+      <div class="eval-panels">${S.groups.map(panelBlock)}</div>
     </section>
   </div>`;
 
+  const panelBlock = (g) => html`<div class="eval-panel${g.loose ? ' is-loose' : ''}" data-panel="${g.id}">
+    <div class="eval-panel-head">
+      <strong>${g.name}</strong><span class="small muted">${plural(g.judges.length, 'judge')}</span>
+      <span class="grow"></span>
+      ${g.loose ? '' : html`<button type="button" class="icon-btn" data-ev-edit-panel="${g.id}" aria-label="Rename ${g.name}" title="Rename">${icon('edit')}</button>
+        <button type="button" class="icon-btn" data-ev-del-panel="${g.id}" aria-label="Delete ${g.name}" title="Delete">${icon('trash')}</button>`}
+    </div>
+    ${g.judges.length
+      ? html`<ul class="eval-judge-chips">${g.judges.map((j) => html`<li><span>${j.name}</span>
+          <button type="button" class="icon-btn" data-ev-edit-judge="${j.id}" aria-label="Edit ${j.name}" title="${hasPanels() ? 'Rename or move to another panel' : 'Rename'}">${icon('edit')}</button>
+          <button type="button" class="icon-btn" data-ev-del-judge="${j.id}" aria-label="Remove ${j.name}" title="Remove">${icon('x')}</button></li>`)}</ul>`
+      : html`<p class="small faint">No judges yet.</p>`}
+    ${g.loose && hasPanels()
+      ? html`<p class="small muted">Use ${icon('edit')} to move these judges into a panel.</p>`
+      : html`<form class="eval-add-judge" data-ev-judge-form data-panel="${g.id}" novalidate>
+          <input class="input" id="ev-judge-name-${g.id}" maxlength="80" placeholder="Judge’s name, e.g. Dr. Meera" aria-label="New judge${g.loose ? '' : ` in ${g.name}`}" autocomplete="off">
+          <button type="submit" class="btn btn-sm">${icon('plus')}Add judge</button>
+        </form>`}
+  </div>`;
+
+  // ---------- the marks ----------
   const board = (round) => html`
     <div class="toolbar eval-toolbar">
       <div class="seg" role="group" aria-label="Show">
@@ -174,91 +216,138 @@ export function evalView(event) {
     </div>
     ${round ? roundBoard(round) : overallBoard()}`;
 
-  const teamCell = (t) => html`<td class="team-cell"><strong>${t.name}</strong><small>${t.code}${t.only ? ' · outside team' : ''}${t.active ? '' : ' · disabled'}</small></td>`;
-  const noRows = (span) => html`<tr><td colspan="${span}" class="muted" style="text-align:center;padding:28px">No teams match.</td></tr>`;
+  const teamCell = (t, note = '') => html`<td class="team-cell"><strong>${t.name}</strong><small>${t.code}${t.only ? ' · outside team' : ''}${t.active ? '' : ' · disabled'}${note}</small></td>`;
   const dash = html`<span class="faint">–</span>`;
+  const noMatch = (span) => html`<tr><td colspan="${span}" class="muted" style="text-align:center;padding:24px">No teams match your search.</td></tr>`;
 
   function roundBoard(r) {
     const d = S.d;
-    const judgeBar = d.judges.length
-      ? html`<div class="toolbar eval-judgebar">
-          <span class="label">Judge</span>
-          <div class="seg" role="group" aria-label="Judge">
-            <button type="button" data-ev-judge="all" aria-pressed="${String(S.judge === 'all')}">All judges</button>
-            ${d.judges.map((j) => html`<button type="button" data-ev-judge="${j.id}" aria-pressed="${String(S.judge === j.id)}">${j.name} <span class="faint" data-ev-count="${j.id}">${judgedCount(r, j.id)}/${d.teams.length}</span></button>`)}
-          </div>
-          <span class="grow"></span>
-          <span class="small muted">${S.judge === 'all' ? 'Pick a judge to type in their marks.' : 'Marks save on their own. Leave a box empty if it wasn’t marked. Enter moves down.'}</span>
-        </div>`
-      : html`<div class="callout callout-warn eval-callout">${icon('info')}<span>Add the judges above to type in their marks for ${r.name}.</span></div>`;
-    const teams = d.teams.filter(matches);
+    if (!d.teams.length) return html`<section class="card">${empty('No teams yet', E.noTeams)}</section>`;
+    if (!d.judges.length) return html`<div class="callout callout-warn eval-callout">${icon('info')}<span>Add ${hasPanels() ? 'judges to the panels' : 'the judges'} above to type in their marks for ${r.name}.</span></div>`;
     const judge = d.judges.find((j) => j.id === S.judge);
-    return html`${judgeBar}
-      <section class="card card-flush">
-        ${!d.teams.length ? empty('No teams yet', E.noTeams) : judge ? sheetTable(r, judge, teams) : summaryTable(r, teams)}
-      </section>`;
+    const bar = html`<div class="eval-judgebar" role="group" aria-label="Panels and judges">
+      <button type="button" class="eval-jbtn eval-jall" data-ev-judge="all" aria-pressed="${String(!judge)}">${icon('users')}${hasPanels() ? 'All panels' : 'All judges'}</button>
+      ${S.groups.filter((g) => g.judges.length).map((g) => html`<div class="eval-jgroup">
+        ${hasPanels() ? html`<span class="eval-jgroup-name">${g.name}</span>` : ''}
+        ${g.judges.map((j) => html`<button type="button" class="eval-jbtn" data-ev-judge="${j.id}" aria-pressed="${String(S.judge === j.id)}" title="Teams ${j.name} marked in ${r.name}">${j.name} <span class="eval-count" data-ev-count="${j.id}">${judgedCount(r, j.id)}</span></button>`)}
+      </div>`)}
+    </div>`;
+    return html`${bar}${!judge ? panelsSummary(r) : S.edit ? sheet(r, judge) : judgeView(r, judge)}`;
   }
 
-  function summaryTable(r, teams) {
+  // Every panel with the teams it marked: each judge's total and the panel average.
+  function panelsSummary(r) {
     const d = S.d;
-    return html`<div class="table-wrap"><table class="table eval-table" data-ev-summary>
-      <thead><tr><th>Team</th>
-        ${d.judges.map((j) => html`<th class="num"><button type="button" class="th-btn" data-ev-judge="${j.id}" title="Type in ${j.name}’s marks">${j.name}</button></th>`)}
-        <th class="num">Average <small>/ ${fmtScore(roundMax(r))}</small></th></tr></thead>
-      <tbody>${teams.length
-        ? teams.map((t) => {
-            const a = roundAvg(r, t.id);
-            return html`<tr data-team="${t.id}" class="${t.active ? '' : 'is-dim'}">${teamCell(t)}
-              ${d.judges.map((j) => {
-                const x = judgeTotal(r, j.id, t.id);
-                return html`<td class="num">${x ? html`${fmt(x.sum)}${x.complete ? '' : html`<span class="eval-part" title="Not every criterion is marked">*</span>`}` : dash}</td>`;
-              })}
-              <td class="num"><strong data-avg>${a ? fmt(a.avg) : dash}</strong>${a ? html`<small class="muted eval-n">${plural(a.n, 'judge')}</small>` : ''}</td>
-            </tr>`;
-          })
-        : noRows(d.judges.length + 2)}</tbody></table></div>`;
+    const teams = d.teams.filter(matches);
+    const unmarked = teams.filter((t) => !roundScore(r, t.id)).length;
+    return html`${S.groups.filter((g) => g.judges.length).map((g) => {
+      const list = teams.filter((t) => groupAvg(r, g, t.id));
+      return html`<section class="card card-flush eval-panel-card" data-ev-panel-card="${g.id}">
+        <header class="eval-card-head">
+          <div><h3>${g.name}</h3><small>${g.judges.map((j) => j.name).join(' · ')}</small></div>
+          <span class="small muted">${plural(list.length, 'team')} marked</span>
+        </header>
+        ${list.length
+          ? html`<div class="table-wrap"><table class="table eval-table" data-ev-summary data-group="${g.id}">
+              <thead><tr><th>Team</th>
+                ${g.judges.map((j) => html`<th class="num"><button type="button" class="th-btn" data-ev-judge="${j.id}" title="See ${j.name}’s marks">${j.name}</button></th>`)}
+                <th class="num">${hasPanels() && !g.loose ? 'Panel average' : 'Average'} <small>/ ${fmtScore(roundMax(r))}</small></th></tr></thead>
+              <tbody>${list.map((t) => {
+                const a = groupAvg(r, g, t.id);
+                const others = (roundScore(r, t.id)?.groups || []).filter((x) => x !== g);
+                return html`<tr data-team="${t.id}" class="${t.active ? '' : 'is-dim'}">${teamCell(t, others.length ? ` · also marked by ${others.map((x) => x.name).join(', ')}` : '')}
+                  ${g.judges.map((j) => {
+                    const x = judgeTotal(r, j.id, t.id);
+                    return html`<td class="num">${x ? html`${fmt(x.sum)}${x.complete ? '' : html`<span class="eval-part" title="Not every criterion is marked">*</span>`}` : dash}</td>`;
+                  })}
+                  <td class="num"><strong data-avg>${fmt(a.avg)}</strong><small class="eval-n">${plural(a.n, 'judge')}</small></td>
+                </tr>`;
+              })}</tbody></table></div>`
+          : html`<p class="eval-empty small muted">${S.q.trim() ? 'No teams match your search.' : html`No marks yet. Pick a judge above, then <strong>Edit marks</strong>.`}</p>`}
+      </section>`;
+    })}
+    ${unmarked ? html`<p class="small muted eval-note-out">${plural(unmarked, 'team')} ${unmarked === 1 ? 'has' : 'have'} no marks in ${r.name} yet. They show up here once a judge marks them.</p>` : ''}`;
   }
 
-  function sheetTable(r, j, teams) {
-    return html`<div class="table-wrap"><table class="table eval-table eval-sheet" data-ev-sheet data-round="${r.id}" data-judge="${j.id}">
-      <thead><tr><th>Team</th>
-        ${r.criteria.map((c) => html`<th class="num">${c.name} <small>/ ${fmtScore(Number(c.max_score))}</small></th>`)}
-        <th class="num">Total <small>/ ${fmtScore(roundMax(r))}</small></th><th class="eval-comment-h">Comment</th><th><span class="sr-only">Save status</span></th></tr></thead>
-      <tbody>${teams.length
-        ? teams.map((t) => {
-            const tot = judgeTotal(r, j.id, t.id);
-            return html`<tr data-team="${t.id}" class="${t.active ? '' : 'is-dim'}">${teamCell(t)}
-              ${r.criteria.map((c, ci) => {
-                const v = M.get(`${j.id}:${t.id}:${c.id}`);
-                return html`<td class="num"><input class="input ev-mark" id="em-${r.id}-${j.id}-${t.id}-${c.id}" data-c="${c.id}" data-col="${ci}" type="number" inputmode="decimal" min="0" max="${Number(c.max_score)}" step="any" value="${v === undefined ? '' : String(v)}" aria-label="${c.name} for ${t.name}"></td>`;
-              })}
-              <td class="num"><strong data-total>${tot ? fmt(tot.sum) : '–'}</strong></td>
-              <td><input class="input" id="ec-${r.id}-${j.id}-${t.id}" data-comment maxlength="1000" value="${C.get(`${j.id}:${t.id}:${r.id}`) || ''}" placeholder="Optional" aria-label="${j.name}’s comment for ${t.name}"></td>
-              <td><span class="save-state" data-save></span></td>
-            </tr>`;
-          })
-        : noRows(r.criteria.length + 4)}</tbody></table></div>`;
+  // One judge, viewing: only the teams they marked.
+  function judgeView(r, j) {
+    const g = groupOf(j.id);
+    const teams = S.d.teams.filter(matches).filter((t) => judgeTotal(r, j.id, t.id) || C.has(`${j.id}:${t.id}:${r.id}`));
+    return html`<section class="card card-flush">
+      <header class="eval-card-head">
+        <div><h3>${j.name}</h3><small>${hasPanels() && g && !g.loose ? `${g.name} · ` : ''}${r.name} · ${plural(teams.length, 'team')} marked</small></div>
+        <button type="button" class="btn btn-primary btn-sm" data-ev-edit-marks>${icon('edit')}Edit marks</button>
+      </header>
+      ${teams.length
+        ? html`<div class="table-wrap"><table class="table eval-table" data-ev-judge-view>
+            <thead><tr><th>Team</th>${r.criteria.map((c) => html`<th class="num">${c.name} <small>/ ${fmtScore(Number(c.max_score))}</small></th>`)}
+              <th class="num">Total <small>/ ${fmtScore(roundMax(r))}</small></th><th>Comment</th></tr></thead>
+            <tbody>${teams.map((t) => {
+              const tot = judgeTotal(r, j.id, t.id);
+              return html`<tr data-team="${t.id}" class="${t.active ? '' : 'is-dim'}">${teamCell(t)}
+                ${r.criteria.map((c) => html`<td class="num">${M.has(`${j.id}:${t.id}:${c.id}`) ? fmt(M.get(`${j.id}:${t.id}:${c.id}`)) : dash}</td>`)}
+                <td class="num"><strong>${tot ? fmt(tot.sum) : dash}</strong></td>
+                <td class="small">${C.get(`${j.id}:${t.id}:${r.id}`) || html`<span class="faint">–</span>`}</td>
+              </tr>`;
+            })}</tbody></table></div>`
+        : html`<p class="eval-empty small muted">${S.q.trim() ? 'No teams match your search.' : `${j.name} hasn’t marked any team in ${r.name} yet. Press Edit marks to type them in.`}</p>`}
+    </section>`;
+  }
+
+  // One judge, editing: every team, so any team the judge saw can be marked.
+  function sheet(r, j) {
+    const g = groupOf(j.id);
+    const teams = S.d.teams.filter(matches);
+    const markedElsewhere = (t) => S.groups.filter((x) => x !== g && groupAvg(r, x, t.id)).map((x) => x.name);
+    return html`<section class="card card-flush eval-editing">
+      <header class="eval-card-head">
+        <div><h3>Editing ${j.name}’s marks</h3><small>${hasPanels() && g && !g.loose ? `${g.name} · ` : ''}${r.name} · every team is listed: fill in the teams ${j.name} marked and leave the rest empty. Marks save on their own; Enter moves down.</small></div>
+        <button type="button" class="btn btn-sm" data-ev-done>${icon('check')}Done</button>
+      </header>
+      <div class="table-wrap"><table class="table eval-table eval-sheet" data-ev-sheet data-round="${r.id}" data-judge="${j.id}">
+        <thead><tr><th>Team</th>
+          ${r.criteria.map((c) => html`<th class="num">${c.name} <small>/ ${fmtScore(Number(c.max_score))}</small></th>`)}
+          <th class="num">Total <small>/ ${fmtScore(roundMax(r))}</small></th><th class="eval-comment-h">Comment</th><th><span class="sr-only">Save status</span></th></tr></thead>
+        <tbody>${teams.length
+          ? teams.map((t) => {
+              const tot = judgeTotal(r, j.id, t.id);
+              const other = hasPanels() ? markedElsewhere(t) : [];
+              return html`<tr data-team="${t.id}" class="${t.active ? '' : 'is-dim'}">${teamCell(t, other.length ? html` · <span class="eval-other">marked by ${other.join(', ')}</span>` : '')}
+                ${r.criteria.map((c, ci) => {
+                  const v = M.get(`${j.id}:${t.id}:${c.id}`);
+                  return html`<td class="num"><input class="input ev-mark" id="em-${r.id}-${j.id}-${t.id}-${c.id}" data-c="${c.id}" data-col="${ci}" type="number" inputmode="decimal" min="0" max="${Number(c.max_score)}" step="any" value="${v === undefined ? '' : String(v)}" aria-label="${c.name} for ${t.name}"></td>`;
+                })}
+                <td class="num"><strong data-total>${tot ? fmt(tot.sum) : '–'}</strong></td>
+                <td><input class="input" id="ec-${r.id}-${j.id}-${t.id}" data-comment maxlength="1000" value="${C.get(`${j.id}:${t.id}:${r.id}`) || ''}" placeholder="Optional" aria-label="${j.name}’s comment for ${t.name}"></td>
+                <td><span class="save-state" data-save></span></td>
+              </tr>`;
+            })
+          : noMatch(r.criteria.length + 4)}</tbody></table></div>
+    </section>`;
   }
 
   function overallBoard() {
     const d = S.d;
-    const list = standings().filter((x) => matches(x.t));
+    const all = standings();
+    const list = all.filter((x) => matches(x.t));
     const maxAll = d.rounds.reduce((s, r) => s + roundMax(r), 0);
-    return html`<section class="card card-flush">${d.teams.length
+    const waiting = d.teams.length - all.length;
+    return html`<section class="card card-flush">${all.length
       ? html`<div class="table-wrap"><table class="table eval-table" data-ev-overall>
-          <thead><tr><th class="eval-rank-col">Rank</th><th>Team</th>
+          <thead><tr><th class="eval-rank-col">Rank</th><th>Team</th>${hasPanels() ? html`<th>Panel</th>` : ''}
             ${d.rounds.map((r) => html`<th class="num">${r.name} <small>/ ${fmtScore(roundMax(r))}</small></th>`)}
             <th class="num">Total <small>/ ${fmtScore(maxAll)}</small></th></tr></thead>
           <tbody>${list.length
-            ? list.map((x) => html`<tr data-team="${x.t.id}" class="${x.t.active ? '' : 'is-dim'}${x.rank && x.rank <= 3 ? ` eval-top eval-top-${x.rank}` : ''}">
-                <td class="eval-rank-col">${x.rank ? html`<span class="eval-rank">${x.rank}</span>` : dash}</td>
+            ? list.map((x) => html`<tr data-team="${x.t.id}" class="${x.t.active ? '' : 'is-dim'}${x.rank <= 3 ? ` eval-top eval-top-${x.rank}` : ''}">
+                <td class="eval-rank-col"><span class="eval-rank">${x.rank}</span></td>
                 ${teamCell(x.t)}
+                ${hasPanels() ? html`<td class="small">${x.panels.join(', ')}</td>` : ''}
                 ${x.per.map((v) => html`<td class="num">${v === null ? dash : fmt(v)}</td>`)}
-                <td class="num"><strong data-total>${x.any ? fmt(x.total) : dash}</strong></td>
+                <td class="num"><strong data-total>${fmt(x.total)}</strong></td>
               </tr>`)
-            : noRows(d.rounds.length + 3)}</tbody></table></div>
-          <p class="small muted eval-note">Each round’s mark is the average of the judges who marked the team, and the total adds up the rounds. Teams without marks aren’t ranked.</p>`
-      : empty('No teams yet', E.noTeams)}</section>`;
+            : noMatch(d.rounds.length + (hasPanels() ? 4 : 3))}</tbody></table></div>
+          <p class="small muted eval-note">${hasPanels() ? 'Each round’s mark is the team’s panel average' : 'Each round’s mark is the average of the judges who marked the team'}, and the total adds up the rounds.${waiting ? ` ${plural(waiting, 'team')} without marks ${waiting === 1 ? 'isn’t' : 'aren’t'} listed.` : ''}</p>`
+      : empty('No marks yet', d.teams.length ? 'Teams appear here once a judge has marked them.' : E.noTeams)}</section>`;
   }
 
   // ---------- events ----------
@@ -277,45 +366,59 @@ export function evalView(event) {
         await flush();
         S.judge = ds.evJudge === 'all' ? 'all' : Number(ds.evJudge);
         redraw(ctx);
+      } else if (b.hasAttribute('data-ev-edit-marks')) {
+        S.edit = true;
+        redraw(ctx);
+        setTimeout(() => $('[data-ev-sheet] .ev-mark')?.focus(), 50);
+      } else if (b.hasAttribute('data-ev-done')) {
+        await flush();
+        S.edit = false;
+        redraw(ctx);
       } else if (b.hasAttribute('data-ev-add-round')) roundForm(ctx, null);
       else if (ds.evEditRound) roundForm(ctx, S.d.rounds.find((r) => r.id === Number(ds.evEditRound)));
       else if (ds.evDelRound) deleteRound(ctx, S.d.rounds.find((r) => r.id === Number(ds.evDelRound)));
-      else if (ds.evEditJudge) renameJudge(ctx, S.d.judges.find((j) => j.id === Number(ds.evEditJudge)));
+      else if (b.hasAttribute('data-ev-add-panel')) panelForm(ctx, null);
+      else if (ds.evEditPanel) panelForm(ctx, S.d.panels.find((p) => p.id === Number(ds.evEditPanel)));
+      else if (ds.evDelPanel) deletePanel(ctx, S.d.panels.find((p) => p.id === Number(ds.evDelPanel)));
+      else if (ds.evEditJudge) judgeForm(ctx, S.d.judges.find((j) => j.id === Number(ds.evEditJudge)));
       else if (ds.evDelJudge) deleteJudge(ctx, S.d.judges.find((j) => j.id === Number(ds.evDelJudge)));
       else if (b.hasAttribute('data-ev-csv')) exportResults();
       else if (b.hasAttribute('data-ev-marks-csv')) exportMarks();
       else if (b.hasAttribute('data-ev-print')) printView();
     });
-    $('[data-ev-judge-form]', root)?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const input = $('#ev-judge-name', root);
-      const name = input.value.trim();
-      if (!name) return input.focus();
-      await withButton($('button[type=submit]', e.target), async () => {
-        await api(`/admin/eval/${event}/judges`, { method: 'POST', body: { name } });
-        input.value = '';
-        toast(`${name} added.`, 'ok');
-        ctx.rerender();
+    for (const form of $$('[data-ev-judge-form]', root)) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pid = Number(form.dataset.panel) || null;
+        const input = $('input', form);
+        const name = input.value.trim();
+        if (!name) return input.focus();
+        await withButton($('button[type=submit]', form), async () => {
+          await api(`/admin/eval/${event}/judges`, { method: 'POST', body: { name, panel_id: pid } });
+          input.value = '';
+          toast(`${name} added.`, 'ok');
+          ctx.rerender();
+        });
       });
-    });
+    }
     $('#ev-search', root)?.addEventListener('input', async (e) => {
       S.q = e.target.value;
       await flush();
       redraw(ctx);
     });
-    const sheet = $('[data-ev-sheet]', root);
-    if (sheet) {
-      sheet.addEventListener('input', (e) => {
+    const table = $('[data-ev-sheet]', root);
+    if (table) {
+      table.addEventListener('input', (e) => {
         const tr = e.target.closest('tr[data-team]');
         if (!tr) return;
         if (e.target.matches('.ev-mark')) updateTotal(tr);
         schedule(tr, 900);
       });
-      sheet.addEventListener('change', (e) => {
+      table.addEventListener('change', (e) => {
         const tr = e.target.closest('tr[data-team]');
         if (tr && S.timers.has(keyOf(tr))) schedule(tr, 0);
       });
-      sheet.addEventListener('keydown', (e) => {
+      table.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' || !e.target.matches('.ev-mark, [data-comment]')) return;
         e.preventDefault();
         const next = e.target.closest('tr').nextElementSibling;
@@ -393,10 +496,10 @@ export function evalView(event) {
       if (comment.trim()) C.set(`${jid}:${tid}:${rid}`, comment.trim());
       else C.delete(`${jid}:${tid}:${rid}`);
       setSaveState(tr, S.timers.has(k) ? 'dirty' : 'saved');
-      // keep the judge's "marked" count and the marks download in step without reloading the page
+      // keep the judge's count and the marks download in step without reloading the page
       const round = S.d.rounds.find((x) => x.id === rid);
       const count = $(`[data-ev-count="${jid}"]`);
-      if (round && count && S.view === rid) count.textContent = `${judgedCount(round, jid)}/${S.d.teams.length}`;
+      if (round && count && S.view === rid) count.textContent = String(judgedCount(round, jid));
       const dl = $('[data-ev-marks-csv]');
       if (dl) dl.disabled = !M.size;
     } catch (err) {
@@ -415,7 +518,7 @@ export function evalView(event) {
     await Promise.all([...chains.values()]);
   }
 
-  // ---------- rounds and judges ----------
+  // ---------- rounds ----------
   function roundForm(ctx, r) {
     const rows = r
       ? r.criteria.map((c) => ({ id: c.id, name: c.name, max: String(Number(c.max_score)) }))
@@ -488,7 +591,7 @@ export function evalView(event) {
 
   async function deleteRound(ctx, r) {
     if (!r) return;
-    const n = S.d.teams.filter((t) => S.d.judges.some((j) => judgeTotal(r, j.id, t.id))).length;
+    const n = S.d.teams.filter((t) => roundScore(r, t.id)).length;
     const ok = await confirmDialog({
       title: `Delete ${r.name}?`,
       message: n ? `This deletes the round and the marks already given in it (${plural(n, 'team')} marked). It can’t be undone.` : 'No marks have been given in this round yet.',
@@ -506,15 +609,54 @@ export function evalView(event) {
     }
   }
 
-  function renameJudge(ctx, j) {
+  // ---------- panels and judges ----------
+  function panelForm(ctx, p) {
+    const next = `Panel ${String.fromCharCode(65 + Math.min(S.d.panels.length, 25))}`;
+    formModal({
+      title: p ? 'Rename panel' : 'Add a panel',
+      submitLabel: p ? 'Save' : 'Add panel',
+      content: html`<label class="field"><span>Panel name</span><input class="input" name="name" maxlength="60" value="${p ? p.name : next}"></label>
+        ${p ? '' : html`<p class="small muted">Then add the panel’s judges in it. Each panel marks its own teams.</p>`}`,
+      async onSubmit(v) {
+        if (p) await api(`/admin/eval/panels/${p.id}`, { method: 'PUT', body: { name: v.name } });
+        else await api(`/admin/eval/${event}/panels`, { method: 'POST', body: { name: v.name } });
+        toast(p ? 'Panel renamed.' : `${v.name.trim()} added.`, 'ok');
+        ctx.rerender();
+      },
+    });
+  }
+
+  async function deletePanel(ctx, p) {
+    if (!p) return;
+    const ok = await confirmDialog({ title: `Delete ${p.name}?`, message: 'The panel is removed. Its judges must be moved or removed first.', confirmLabel: 'Delete panel', danger: true });
+    if (!ok) return;
+    try {
+      await api(`/admin/eval/panels/${p.id}`, { method: 'DELETE' });
+      toast(`${p.name} deleted.`, 'ok');
+      ctx.rerender();
+    } catch (err) {
+      toastError(err);
+    }
+  }
+
+  function judgeForm(ctx, j) {
     if (!j) return;
     formModal({
-      title: 'Rename judge',
+      title: 'Edit judge',
       submitLabel: 'Save',
-      content: html`<label class="field"><span>Judge’s name</span><input class="input" name="name" maxlength="80" value="${j.name}"></label>`,
+      content: html`<label class="field"><span>Judge’s name</span><input class="input" name="name" maxlength="80" value="${j.name}"></label>
+        ${hasPanels()
+          ? html`<label class="field"><span>Panel <span class="hint">Marks already given stay with the judge.</span></span>
+              <select class="select" name="panel_id">
+                ${S.d.panels.map((p) => html`<option value="${p.id}" ${j.panel_id === p.id ? 'selected' : ''}>${p.name}</option>`)}
+                <option value="" ${S.d.panels.some((p) => p.id === j.panel_id) ? '' : 'selected'}>Not in a panel</option>
+              </select></label>`
+          : ''}`,
       async onSubmit(v) {
-        await api(`/admin/eval/judges/${j.id}`, { method: 'PUT', body: { name: v.name } });
-        toast('Judge renamed.', 'ok');
+        const body = { name: v.name };
+        if (hasPanels()) body.panel_id = v.panel_id ? Number(v.panel_id) : null;
+        await api(`/admin/eval/judges/${j.id}`, { method: 'PUT', body });
+        toast('Judge saved.', 'ok');
         ctx.rerender();
       },
     });
@@ -543,24 +685,29 @@ export function evalView(event) {
 
   // ---------- export and print ----------
   const stamp = () => new Date().toISOString().slice(0, 10);
+  const panelLabel = (j) => {
+    const g = groupOf(j.id);
+    return hasPanels() && g && !g.loose ? g.name : '';
+  };
+  // One row per team that has marks: rank, panel, each round's mark and the total, then every judge's total.
   function exportResults() {
     const d = S.d;
     const head = ['Rank', 'Team ID', 'Team'];
-    for (const r of d.rounds) {
-      for (const j of d.judges) head.push(`${r.name}: ${j.name}`);
-      head.push(`${r.name}: average (out of ${fmtScore(roundMax(r))})`);
-    }
+    if (hasPanels()) head.push('Panel');
+    for (const r of d.rounds) head.push(`${r.name} (out of ${fmtScore(roundMax(r))})`);
     head.push(`Total (out of ${fmtScore(d.rounds.reduce((s, r) => s + roundMax(r), 0))})`);
+    for (const r of d.rounds) for (const j of d.judges) head.push(`${r.name}: ${j.name}${panelLabel(j) ? ` (${panelLabel(j)})` : ''}`);
     const rows = standings().map((x) => {
-      const out = [x.rank ?? '', x.t.code, x.t.name];
-      d.rounds.forEach((r, i) => {
+      const out = [x.rank, x.t.code, x.t.name];
+      if (hasPanels()) out.push(x.panels.join('; '));
+      for (const v of x.per) out.push(v === null ? '' : r2(v));
+      out.push(r2(x.total));
+      for (const r of d.rounds) {
         for (const j of d.judges) {
           const t = judgeTotal(r, j.id, x.t.id);
           out.push(t ? r2(t.sum) : '');
         }
-        out.push(x.per[i] === null ? '' : r2(x.per[i]));
-      });
-      out.push(x.any ? r2(x.total) : '');
+      }
       return out;
     });
     downloadText(`${E.file}-results-${stamp()}.csv`, csvText([head, ...rows]));
@@ -568,32 +715,34 @@ export function evalView(event) {
   function exportMarks() {
     const d = S.d;
     const maxCrit = Math.max(1, ...d.rounds.map((r) => r.criteria.length));
-    const head = ['Round', 'Judge', 'Team ID', 'Team'];
+    const head = ['Round', 'Panel', 'Judge', 'Team ID', 'Team'];
     for (let i = 1; i <= maxCrit; i++) head.push(`Criterion ${i}`, `Mark ${i}`, `Out of ${i}`);
     head.push('Total', 'Out of', 'Comment');
     const rows = [];
     for (const r of d.rounds) {
-      for (const j of d.judges) {
-        for (const t of d.teams) {
-          const tot = judgeTotal(r, j.id, t.id);
-          const cm = C.get(`${j.id}:${t.id}:${r.id}`) || '';
-          if (!tot && !cm) continue;
-          const row = [r.name, j.name, t.code, t.name];
-          for (let i = 0; i < maxCrit; i++) {
-            const c = r.criteria[i];
-            const v = c ? M.get(`${j.id}:${t.id}:${c.id}`) : undefined;
-            row.push(c ? c.name : '', v === undefined ? '' : v, c ? Number(c.max_score) : '');
+      for (const g of S.groups) {
+        for (const j of g.judges) {
+          for (const t of d.teams) {
+            const tot = judgeTotal(r, j.id, t.id);
+            const cm = C.get(`${j.id}:${t.id}:${r.id}`) || '';
+            if (!tot && !cm) continue;
+            const row = [r.name, g.loose ? '' : g.name, j.name, t.code, t.name];
+            for (let i = 0; i < maxCrit; i++) {
+              const c = r.criteria[i];
+              const v = c ? M.get(`${j.id}:${t.id}:${c.id}`) : undefined;
+              row.push(c ? c.name : '', v === undefined ? '' : v, c ? Number(c.max_score) : '');
+            }
+            row.push(tot ? r2(tot.sum) : '', roundMax(r), cm);
+            rows.push(row);
           }
-          row.push(tot ? r2(tot.sum) : '', roundMax(r), cm);
-          rows.push(row);
         }
       }
     }
     downloadText(`${E.file}-marks-${stamp()}.csv`, csvText([head, ...rows]));
   }
 
-  // Prints what's on screen: the overall ranking, a round's summary, or one judge's sheet (blank boxes print
-  // empty, so a sheet also works as a paper marking form).
+  // Prints what's on screen. A judge's sheet in Edit marks lists every team with empty boxes, so it also works as a
+  // paper marking form; everything else lists only the teams that have marks.
   function printView() {
     const area = $('#print-area');
     if (!area) return;
@@ -602,29 +751,32 @@ export function evalView(event) {
     const judge = round && d.judges.find((j) => j.id === S.judge);
     const teams = d.teams.filter(matches);
     let title;
-    let table;
+    let body;
     if (!round) {
       title = 'Overall ranking';
       const list = standings().filter((x) => matches(x.t));
-      table = html`<table><thead><tr><th>Rank</th><th>Team</th>${d.rounds.map((r) => html`<th>${r.name} (/${fmtScore(roundMax(r))})</th>`)}<th>Total</th></tr></thead>
-        <tbody>${list.map((x) => html`<tr><td>${x.rank ?? '–'}</td><td>${x.t.code} · ${x.t.name}</td>${x.per.map((v) => html`<td>${fmt(v)}</td>`)}<td><b>${x.any ? fmt(x.total) : '–'}</b></td></tr>`)}</tbody></table>`;
+      body = html`<table><thead><tr><th>Rank</th><th>Team</th>${hasPanels() ? html`<th>Panel</th>` : ''}${d.rounds.map((r) => html`<th>${r.name} (/${fmtScore(roundMax(r))})</th>`)}<th>Total</th></tr></thead>
+        <tbody>${list.map((x) => html`<tr><td>${x.rank}</td><td>${x.t.code} · ${x.t.name}</td>${hasPanels() ? html`<td>${x.panels.join(', ')}</td>` : ''}${x.per.map((v) => html`<td>${fmt(v)}</td>`)}<td><b>${fmt(x.total)}</b></td></tr>`)}</tbody></table>`;
     } else if (judge) {
-      title = `${round.name} · ${judge.name}`;
-      table = html`<table><thead><tr><th>Team</th>${round.criteria.map((c) => html`<th>${c.name} (/${fmtScore(Number(c.max_score))})</th>`)}<th>Total (/${fmtScore(roundMax(round))})</th><th class="pe-wide">Comment</th></tr></thead>
-        <tbody>${teams.map((t) => {
+      const list = S.edit ? teams : teams.filter((t) => judgeTotal(round, judge.id, t.id) || C.has(`${judge.id}:${t.id}:${round.id}`));
+      title = `${round.name} · ${judge.name}${panelLabel(judge) ? ` · ${panelLabel(judge)}` : ''}`;
+      body = html`<table><thead><tr><th>Team</th>${round.criteria.map((c) => html`<th>${c.name} (/${fmtScore(Number(c.max_score))})</th>`)}<th>Total (/${fmtScore(roundMax(round))})</th><th class="pe-wide">Comment</th></tr></thead>
+        <tbody>${list.map((t) => {
           const tot = judgeTotal(round, judge.id, t.id);
           return html`<tr><td>${t.code} · ${t.name}</td>${round.criteria.map((c) => html`<td>${M.has(`${judge.id}:${t.id}:${c.id}`) ? fmt(M.get(`${judge.id}:${t.id}:${c.id}`)) : ''}</td>`)}<td><b>${tot ? fmt(tot.sum) : ''}</b></td><td>${C.get(`${judge.id}:${t.id}:${round.id}`) || ''}</td></tr>`;
         })}</tbody></table>`;
     } else {
-      title = `${round.name} · all judges`;
-      table = html`<table><thead><tr><th>Team</th>${d.judges.map((j) => html`<th>${j.name}</th>`)}<th>Average (/${fmtScore(roundMax(round))})</th></tr></thead>
-        <tbody>${teams.map((t) => {
-          const a = roundAvg(round, t.id);
-          return html`<tr><td>${t.code} · ${t.name}</td>${d.judges.map((j) => html`<td>${fmt(judgeTotal(round, j.id, t.id)?.sum ?? null)}</td>`)}<td><b>${a ? fmt(a.avg) : '–'}</b></td></tr>`;
-        })}</tbody></table>`;
+      title = `${round.name} · ${hasPanels() ? 'all panels' : 'all judges'}`;
+      body = html`${S.groups.filter((g) => g.judges.length).map((g) => {
+        const list = teams.filter((t) => groupAvg(round, g, t.id));
+        return list.length
+          ? html`<h2>${g.name}</h2><table><thead><tr><th>Team</th>${g.judges.map((j) => html`<th>${j.name}</th>`)}<th>Average (/${fmtScore(roundMax(round))})</th></tr></thead>
+              <tbody>${list.map((t) => html`<tr><td>${t.code} · ${t.name}</td>${g.judges.map((j) => html`<td>${fmt(judgeTotal(round, j.id, t.id)?.sum ?? null)}</td>`)}<td><b>${fmt(groupAvg(round, g, t.id).avg)}</b></td></tr>`)}</tbody></table>`
+          : '';
+      })}`;
     }
     area.classList.add('print-eval');
-    setHTML(area, html`<header><h1>${E.title}</h1><p>${title} · printed ${fmtDateTime(new Date().toISOString())}</p></header>${table}`);
+    setHTML(area, html`<header><h1>${E.title}</h1><p>${title} · printed ${fmtDateTime(new Date().toISOString())}</p></header>${body}`);
     const done = () => {
       area.classList.remove('print-eval');
       setHTML(area, '');
